@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<title>
+</title>
+</head>
+<body>
+<!-- No renames in the next script tag since it's not in polymer-element. -->
+<script>
+  var foo = my.coolSymbolName;
+  foo();
+</script>
+<polymer-element
+    name="test"
+    attributes="MY_SYMBOL prop1 coolSymbolName prop2 symbolA">
+  <template>
+    <style>
+      symbolA {
+      }
+    </style>
+    <div id="{{foo.dontRenameMe}}" name="{{foo.coolSymbolName}}" selected="0" foo?="{{polymerdoesthis}}">
+      {{symbolA}}
+    </div>
+    <div selected>
+      Another selected div.
+    </div>
+    <template if="{{symbolA == 42}}">
+      symbolA is 42.
+    </template>
+  </template>
+  <script>
+    Polymer({
+      symbolAChanged: function() {this.coolSymbolName = true;},
+      prop1Changed: function() {this.prop2 = 42;}
+    });
+  </script>
+</polymer-element>
+</body>
+</html>
