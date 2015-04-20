@@ -36,14 +36,15 @@ public class PolymerDatabindingLexer {
    * The available tokens emitted from this lexer.
    */
   public static enum TokenType {
-    OPENCURLYBRACES, CLOSECURLYBRACES, STRING;
+    OPENCURLYBRACES, CLOSECURLYBRACES, OPENSQUAREBRACES, CLOSESQUAREBRACES, STRING;
   }
 
   /**
    * The patterns of interest in the string.
    */
   private static enum NamedPattern {
-    OPENCURLYBRACES("\\{\\{"), CLOSECURLYBRACES("\\}\\}"), CHARACTER(".");
+    OPENCURLYBRACES("\\{\\{"), CLOSECURLYBRACES("\\}\\}"), OPENSQUAREBRACES("\\[\\["),
+    CLOSESQUAREBRACES("\\]\\]"), CHARACTER(".");
 
     private String regex;
 
@@ -95,6 +96,12 @@ public class PolymerDatabindingLexer {
         } else if (matcher.group(NamedPattern.CLOSECURLYBRACES.name()) != null) {
           tokens.add(new Token(TokenType.CLOSECURLYBRACES,
               matcher.group(NamedPattern.CLOSECURLYBRACES.name())));
+        } else if (matcher.group(NamedPattern.OPENSQUAREBRACES.name()) != null) {
+          tokens.add(new Token(TokenType.OPENSQUAREBRACES,
+              matcher.group(NamedPattern.OPENSQUAREBRACES.name())));
+        } else if (matcher.group(NamedPattern.CLOSESQUAREBRACES.name()) != null) {
+          tokens.add(new Token(TokenType.CLOSESQUAREBRACES,
+              matcher.group(NamedPattern.CLOSESQUAREBRACES.name())));
         }
       }
     }

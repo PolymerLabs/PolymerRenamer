@@ -49,12 +49,27 @@ public class PolymerRenamerTest {
   }
 
   @Test
-  public void testRun() {
+  public void testRunPolymer0_5() {
     PolymerRenamer.main(new String[] {
         getFilePathFromTestData("rename.map"),
         getFilePathFromTestData("source.html")});
     try {
       assertEquals(getFileContent(getFilePathFromTestData("source_expected.html")),
+          outStream.toString());
+    } catch (FileNotFoundException e) {
+      fail(e.toString());
+    }
+    assertEquals("", errStream.toString());
+  }
+
+  @Test
+  public void testRunPolymer0_8() {
+    PolymerRenamer.main(new String[] {
+        getFilePathFromTestData("rename.map"),
+        getFilePathFromTestData("polymer_v0.8.html")
+    });
+    try {
+      assertEquals(getFileContent(getFilePathFromTestData("polymer_v0.8_expected.html")),
           outStream.toString());
     } catch (FileNotFoundException e) {
       fail(e.toString());

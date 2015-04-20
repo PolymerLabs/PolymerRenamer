@@ -32,9 +32,15 @@ import org.jsoup.select.NodeVisitor;
  */
 public class HtmlRenamer {
 
+  private static enum RenameMode {
+    POLYMER_0_5,
+    POLYMER_0_8,
+  }
+
   private static class DatabindingRenamer implements NodeVisitor {
 
     private final ImmutableMap<String, String> renameMap;
+    private final HtmlRenamer.RenameMode renameMode;
 
     /** true if we are inside a script element. */
     private boolean insideScriptElement = false;
@@ -43,14 +49,16 @@ public class HtmlRenamer {
      * Constructs the DatabindingRenamer to rename according to |renameMap|.
      * @param renameMap A mapping from symbol to renamed symbol.
      */
-    public DatabindingRenamer(ImmutableMap<String, String> renameMap) {
+    public DatabindingRenamer(
+        ImmutableMap<String, String> renameMap, HtmlRenamer.RenameMode renameMode) {
       this.renameMap = renameMap;
+      this.renameMode = renameMode;
     }
 
     @Override
     public void head(Node node, int depth) {
       if (node instanceof Element) {
-        Element element = (Element)node;
+        Element element = (Element) node;
         String tagName = element.tag().getName();
         if (tagName.equals("polymer-element")) {
           renameAttributesAttributeValue(element);
@@ -60,10 +68,10 @@ public class HtmlRenamer {
           renameAllAttributeValues(element);
         }
       } else if (node instanceof TextNode) {
-        TextNode textNode = (TextNode)node;
+        TextNode textNode = (TextNode) node;
         textNode.text(renameStringWithDatabindingDirectives(textNode.getWholeText()));
       } else if (insideScriptElement && node instanceof DataNode) {
-        DataNode dataNode = (DataNode)node;
+        DataNode dataNode = (DataNode) node;
         dataNode.setWholeData(JsRenamer.renameProperties(renameMap, dataNode.getWholeData()));
       }
     }
@@ -71,7 +79,7 @@ public class HtmlRenamer {
     @Override
     public void tail(Node node, int depth) {
       if (node instanceof Element) {
-        Element element = (Element)node;
+        Element element = (Element) node;
         if (element.tag().equals("script")) {
           insideScriptElement = false;
         }
@@ -106,22 +114,34 @@ public class HtmlRenamer {
     private String renameStringWithDatabindingDirectives(String input) {
       Token tokens[] = PolymerDatabindingLexer.lex(input);
       StringBuilder sb = new StringBuilder();
-      boolean insideCurlyBraces = false;
+      boolean insideBraces = false;
       for (Token t : tokens) {
         switch (t.type) {
           case STRING:
-            if (insideCurlyBraces) {
+            if (insideBraces) {
               sb.append(renameDatabindingJsExpression(t.value));
             } else {
               sb.append(t.value);
             }
             break;
           case OPENCURLYBRACES:
-            insideCurlyBraces = true;
+            insideBraces = true;
             sb.append(t.value);
             break;
           case CLOSECURLYBRACES:
-            insideCurlyBraces = false;
+            insideBraces = false;
+            sb.append(t.value);
+            break;
+          case OPENSQUAREBRACES:
+            if (renameMode == HtmlRenamer.RenameMode.POLYMER_0_8) {
+              insideBraces = true;
+            }
+            sb.append(t.value);
+            break;
+          case CLOSESQUAREBRACES:
+            if (renameMode == HtmlRenamer.RenameMode.POLYMER_0_8) {
+              insideBraces = false;
+            }
             sb.append(t.value);
             break;
         }
@@ -130,7 +150,7 @@ public class HtmlRenamer {
     }
 
     private String renameDatabindingJsExpression(String input) {
-      // Add parenthesis to convince the parser this the input is a value expression.
+      // Add parenthesis to convince the parser that the input is a value expression.
       String renamed = JsRenamer.renamePropertiesAndVariables(renameMap, "(" + input + ")");
       if (renamed.length() > 0) {
         // Trim trailing semicolon since databinding expressions don't have this.
@@ -145,11 +165,16 @@ public class HtmlRenamer {
     OutputSettings outputSettings = document.outputSettings();
     outputSettings.prettyPrint(false);
     outputSettings.escapeMode(EscapeMode.xhtml);
-    NodeTraversor polymerElementTraversor =
-        new NodeTraversor(new DatabindingRenamer(renameMap));
-    Elements polymerElements = document.getElementsByTag("polymer-element");
-    for (Element polymerElement : polymerElements) {
-      polymerElementTraversor.traverse(polymerElement);
+    RenameMode renameMode = RenameMode.POLYMER_0_8;
+    Elements polymerDomElements = document.getElementsByTag("dom-module");
+    if (polymerDomElements.isEmpty()) {
+      renameMode = HtmlRenamer.RenameMode.POLYMER_0_5;
+      polymerDomElements = document.getElementsByTag("polymer-element");
+    }
+    NodeTraversor polymerDomElementTraversor =
+        new NodeTraversor(new DatabindingRenamer(renameMap, renameMode));
+    for (Element polymerDomElement : polymerDomElements) {
+      polymerDomElementTraversor.traverse(polymerDomElement);
     }
     return document.toString();
   }

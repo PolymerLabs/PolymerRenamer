@@ -3,19 +3,19 @@
 </title>
 </head>
 <body>
-<!-- No renames in the next script tag since it's not in polymer-element. -->
+<!-- No renames in the next script tag since it's not in dom-module. -->
 <script>
   var foo = my.coolSymbolName;
   foo();
 </script>
-<polymer-element name="test" attributes="cd3 prop1 b prop2 ab">
+<dom-module name="x-test">
   <template>
     <style>
       symbolA {
       }
     </style>
     <div id="{{foo.dontRenameMe}}" name="{{foo.b}}" selected="0" foo?="{{polymerdoesthis}}">
-      {{ab}} [[symbolA]] [[foo.dontRenameMe]]
+      {{ab}} [[ab]] [[foo.dontRenameMe]]
     </div>
     <div selected>
       Another selected div.
@@ -24,7 +24,7 @@
       symbolA is 42.
     </template>
   </template>
-  <script>Polymer({abChanged:function(){this.b=true},prop1Changed:function(){this.prop2=42}});</script>
-</polymer-element>
+  <script>Polymer({is:"x-test"});</script>
+</dom-module>
 
 </body></html>
