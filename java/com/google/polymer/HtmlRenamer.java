@@ -9,6 +9,7 @@
 
 package com.google.polymer;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.polymer.PolymerDatabindingLexer.Token;
@@ -26,6 +27,9 @@ import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
 import org.jsoup.select.NodeTraversor;
 import org.jsoup.select.NodeVisitor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Coordinates HTML document renaming.
@@ -171,11 +175,33 @@ public class HtmlRenamer {
       renameMode = HtmlRenamer.RenameMode.POLYMER_0_5;
       polymerDomElements = document.getElementsByTag("polymer-element");
     }
+    List<String> polymerCustomElements = new ArrayList<String>();
     NodeTraversor polymerDomElementTraversor =
         new NodeTraversor(new DatabindingRenamer(renameMap, renameMode));
     for (Element polymerDomElement : polymerDomElements) {
+      if (renameMode == RenameMode.POLYMER_0_8) {
+        String polymerElementTagName = polymerDomElement.attr("name");
+        if (!polymerElementTagName.isEmpty()) {
+          polymerCustomElements.add(polymerElementTagName);
+        }
+      }
       polymerDomElementTraversor.traverse(polymerDomElement);
     }
+
+    for (String polymerElementTagName : polymerCustomElements) {
+      Elements customElements = document.getElementsByTag(polymerElementTagName);
+      for (Element customElement : customElements) {
+        Attributes attributes = customElement.attributes();
+        for (Attribute attribute : attributes) {
+          String renamedProperty = renameMap.get(
+              CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, attribute.getKey()));
+          if (renamedProperty != null) {
+            attribute.setKey(CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_HYPHEN, renamedProperty));
+          }
+        }
+      }
+    }
+
     return document.toString();
   }
 }
