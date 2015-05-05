@@ -23,6 +23,8 @@
     <template if="{{ab==42}}">
       symbolA is 42.
     </template>
+    Annotated Computed Property: <span>{{ab(prop1,b)}}</span>
+    Annotated Computed Property 2: <span>{{dontRenameMe(foo.b,ab)}}</span>
   </template>
   <script>Polymer({is:"x-test"});</script>
 </dom-module>

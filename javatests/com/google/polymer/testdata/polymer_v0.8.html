@@ -25,6 +25,8 @@
     <template if="{{symbolA == 42}}">
       symbolA is 42.
     </template>
+    Annotated Computed Property: <span>{{symbolA(prop1, coolSymbolName)}}</span>
+    Annotated Computed Property 2: <span>{{dontRenameMe(foo.coolSymbolName, symbolA)}}</span>
   </template>
   <script>
     Polymer({
