@@ -77,6 +77,34 @@ public class PolymerRenamerTest {
     assertEquals("", errStream.toString());
   }
 
+  @Test
+  public void testRunPolymerCall() {
+    PolymerRenamer.main(new String[] {
+        getFilePathFromTestData("rename.map"),
+        getFilePathFromTestData("polymer_call.js")});
+    try {
+      assertEquals(getFileContent(getFilePathFromTestData("polymer_call_expected.js")),
+          outStream.toString());
+    } catch (FileNotFoundException e) {
+      fail(e.toString());
+    }
+    assertEquals("", errStream.toString());
+  }
+
+  @Test
+  public void testRunPolymerLegacyCall() {
+    PolymerRenamer.main(new String[] {
+        getFilePathFromTestData("rename.map"),
+        getFilePathFromTestData("polymer_legacy_call.js")});
+    try {
+      assertEquals(getFileContent(getFilePathFromTestData("polymer_legacy_call_expected.js")),
+          outStream.toString());
+    } catch (FileNotFoundException e) {
+      fail(e.toString());
+    }
+    assertEquals("", errStream.toString());
+  }
+
   private static String getFilePathFromTestData(String filename) {
     return "javatests/com/google/polymer/testdata/" + filename;
   }

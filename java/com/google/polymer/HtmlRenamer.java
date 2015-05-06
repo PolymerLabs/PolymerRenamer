@@ -123,7 +123,7 @@ public class HtmlRenamer {
         switch (t.type) {
           case STRING:
             if (insideBraces) {
-              sb.append(renameDatabindingJsExpression(t.value));
+              sb.append(JsRenamer.renamePolymerJsExpression(renameMap, t.value));
             } else {
               sb.append(t.value);
             }
@@ -151,16 +151,6 @@ public class HtmlRenamer {
         }
       }
       return sb.toString();
-    }
-
-    private String renameDatabindingJsExpression(String input) {
-      // Add parenthesis to convince the parser that the input is a value expression.
-      String renamed = JsRenamer.renamePropertiesAndVariables(renameMap, "(" + input + ")");
-      if (renamed.length() > 0) {
-        // Trim trailing semicolon since databinding expressions don't have this.
-        renamed = renamed.substring(0, renamed.length() - 1);
-      }
-      return renamed;
     }
   }
 

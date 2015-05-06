@@ -9,9 +9,9 @@
 
 package com.google.polymer;
 
+import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.GETPROP;
 import static com.google.javascript.rhino.Token.NAME;
-import static com.google.javascript.rhino.Token.STRING;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 
 import com.google.common.collect.ImmutableMap;
@@ -26,25 +26,50 @@ import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
 
 /**
- * Handles all JavaScript Parsing Coordination.
+ * Handles all JavaScript renaming.
  */
 public class JsRenamer {
+  private enum VariableRenameMode {
+    /**
+     * Standard renaming that does not attempt to rename NAME nodes.
+     */
+    NO_VARIABLE_RENAMES,
+
+    /**
+     * Allow for more aggressive renaming in EXPR_RESULT nodes. This used in single expression
+     * scripts like Polymer databinding directives.
+     */
+    RENAME_VARIABLES
+  }
 
   private JsRenamer() {}
 
   /**
-   * Parses, renames properties, and reformats JavaScript.
+   * Renames properties and reformats JavaScript.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return JavaScript code with renames applied.
    */
   public static String renameProperties(ImmutableMap<String, String> renameMap, String js) {
-    return toSource(renameNode(renameMap, parse(js), false));
+    return toSource(renameNode(renameMap, parse(js), VariableRenameMode.NO_VARIABLE_RENAMES));
   }
 
-  public static String renamePropertiesAndVariables(ImmutableMap<String, String> renameMap,
-      String js) {
-    return toSource(renameNode(renameMap, parse(js), true));
+  /**
+   * Renames properties, renames variables, and reformats Polymer JavaScript-like expressions.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param js The JavaScript code.
+   * @return The JavaScript-like expression with renames applied.
+   */
+  public static String renamePolymerJsExpression(
+      ImmutableMap<String, String> renameMap, String js) {
+    // Add parenthesis to convince the parser that the input is a value expression.
+    String renamed =
+        toSource(renameNode(renameMap, parse("(" + js + ")"), VariableRenameMode.RENAME_VARIABLES));
+    if (renamed.length() > 0) {
+      // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
+      renamed = renamed.substring(0, renamed.length() - 1);
+    }
+    return renamed;
   }
 
   /**
@@ -81,33 +106,40 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param current The JavaScript abstract syntax tree to rename. Note that this method will mutate
    *        |current| with the renames.
-   * @param allowVariableRenaming Allow for more aggressive renaming in EXPR_RESULT nodes. This used
-   *        in single expression scripts like Polymer databinding directives.
+   * @param variableRenameMode Variable renaming mode to use.
    * @return The renamed abstract syntax tree.
    */
   private static Node renameNode(ImmutableMap<String, String> renameMap, Node current,
-      boolean allowVariableRenaming) {
+      VariableRenameMode variableRenameMode) {
     int type = current.getType();
     switch (type) {
+      case CALL:
+        if (current.hasMoreThanOneChild()) {
+          Node firstChild = current.getFirstChild();
+          if (firstChild.isName() && firstChild.getString().equals("Polymer")) {
+            renamePolymerCallNode(renameMap, current);
+          }
+        }
+        break;
       case GETPROP:
         if (current.hasMoreThanOneChild()) {
           Node secondChild = current.getChildAtIndex(1);
-          if (secondChild.getType() == STRING) {
+          if (secondChild.isString()) {
             renameNodeWithString(renameMap, secondChild);
           }
+        }
+        break;
+      case NAME:
+        if (variableRenameMode == VariableRenameMode.RENAME_VARIABLES) {
+          renameNodeWithString(renameMap, current);
         }
         break;
       case STRING_KEY:
         renameNodeWithString(renameMap, current);
         break;
-      case NAME:
-        if (allowVariableRenaming) {
-          renameNodeWithString(renameMap, current);
-        }
-        break;
     }
     for (Node child : current.children()) {
-      renameNode(renameMap, child, allowVariableRenaming);
+      renameNode(renameMap, child, variableRenameMode);
     }
     return current;
   }
@@ -130,10 +162,87 @@ public class JsRenamer {
   }
 
   /**
+   * Performs property renames on a Polymer call node containing an object and a string key of 'is'
+   * with a string node. This indicates the call node is Polymer 0.8 or later.
+   * TODO(robliao): Evaluate expressions if necessary.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param polymerCallNode A call node containing the call to Polymer.
+   */
+  private static void renamePolymerCallNode(
+      ImmutableMap<String, String> renameMap, Node polymerCallNode) {
+    Node polymerInitObjectNode = polymerCallNode.getChildAtIndex(1);
+    if (!polymerInitObjectNode.isObjectLit()) {
+      return;
+    }
+
+    ImmutableMap<String, Node> polymerInitObjectMap =
+        convertObjectLitNodeToMap(polymerInitObjectNode);
+    if (!polymerInitObjectMap.containsKey("is")) {
+      // This isn't a Polymer 0.8 or newer call.
+      return;
+    }
+
+    // Rename 'computed' and 'observer' property description references.
+    Node propertiesNode = polymerInitObjectMap.get("properties");
+    if ((propertiesNode != null) && propertiesNode.isObjectLit()) {
+      ImmutableMap<String, Node> propertiesMap = convertObjectLitNodeToMap(propertiesNode);
+      for (Node propertyDescriptorNode : propertiesMap.values()) {
+        if (propertyDescriptorNode.isObjectLit()) {
+          ImmutableMap<String, Node> propertyDescriptorMap =
+              convertObjectLitNodeToMap(propertyDescriptorNode);
+          renamePolymerJsStringNode(renameMap, propertyDescriptorMap.get("computed"));
+          renamePolymerJsStringNode(renameMap, propertyDescriptorMap.get("observer"));
+        }
+      }
+    }
+
+    // Rename all JavaScript-like expressions in the 'observers' array.
+    Node observersNode = polymerInitObjectMap.get("observers");
+    if ((observersNode != null) && observersNode.isArrayLit()) {
+      for (Node observerItem : observersNode.children()) {
+        renamePolymerJsStringNode(renameMap, observerItem);
+      }
+    }
+
+    // Rename all JavaScript-like expressions in the listeners descriptor.
+    Node listenersNode = polymerInitObjectMap.get("listeners");
+    if ((listenersNode != null) && listenersNode.isObjectLit()) {
+      ImmutableMap<String, Node> listenersMap = convertObjectLitNodeToMap(listenersNode);
+      for (Node listenerDescriptorNode : listenersMap.values()) {
+        renamePolymerJsStringNode(renameMap, listenerDescriptorNode);
+      }
+    }
+  }
+
+  /**
+   * Renames a string node under variable naming rules similar to Polymer databinding expressions.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param node String node to rename under variable renaming rules. Can be null. Will not attempt
+   *     a rename if the node is not a string node.
+   */
+  private static void renamePolymerJsStringNode(
+      ImmutableMap<String, String> renameMap, Node node) {
+    if (node == null || !node.isString()) {
+      return;
+    }
+
+    node.setString(renamePolymerJsExpression(renameMap, node.getString()));
+  }
+
+  private static ImmutableMap<String, Node> convertObjectLitNodeToMap(Node objectLiteralNode) {
+    ImmutableMap.Builder<String, Node> builder = ImmutableMap.builder();
+    for (Node keyNode : objectLiteralNode.children()) {
+      if (keyNode.isStringKey() && keyNode.hasOneChild()) {
+        builder.put(keyNode.getString(), keyNode.getFirstChild());
+      }
+    }
+    return builder.build();
+  }
+
+  /**
    * JavaScript syntax checking is a non-goal for the renamer since other tools like Closure will
    * catch issues at compile time and the rest of the issues will be found by the interpreter at
-   * runtime. As a result, this error reporter reports noting. In the future, the renamer will not
-   * handle JavaScript files and only process Polymer Databinding Expressions.
+   * runtime. As a result, this error reporter reports nothing.
    */
   private static class MutedErrorReporter implements ErrorReporter {
     public MutedErrorReporter() {}

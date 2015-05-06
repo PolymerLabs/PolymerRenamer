@@ -64,43 +64,43 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePropertiesAndVariablesEmptyMap() {
-    assertEquals("no;", JsRenamer.renamePropertiesAndVariables(emptyMap, "no;"));
-    assertEquals("no.renames;", JsRenamer.renamePropertiesAndVariables(emptyMap, "no.renames;"));
-    assertEquals("no.renames.here;",
-        JsRenamer.renamePropertiesAndVariables(emptyMap, "no.renames.here;"));
-    assertEquals("no.renames().here;",
-        JsRenamer.renamePropertiesAndVariables(emptyMap, "no.renames().here;"));
-    assertEquals("no.renames.here();",
-        JsRenamer.renamePropertiesAndVariables(emptyMap, "no.renames.here();"));
+  public void testRenamePolymerJsExpressionEmptyMap() {
+    assertEquals("no", JsRenamer.renamePolymerJsExpression(emptyMap, "no"));
+    assertEquals("no.renames", JsRenamer.renamePolymerJsExpression(emptyMap, "no.renames"));
+    assertEquals("no.renames.here",
+        JsRenamer.renamePolymerJsExpression(emptyMap, "no.renames.here"));
+    assertEquals("no.renames().here",
+        JsRenamer.renamePolymerJsExpression(emptyMap, "no.renames().here"));
+    assertEquals("no.renames.here()",
+        JsRenamer.renamePolymerJsExpression(emptyMap, "no.renames.here()"));
   }
 
   @Test
-  public void testRenamePropertiesAndVariablesSingleRename() {
-    assertEquals("rb;", JsRenamer.renamePropertiesAndVariables(testMap, "longName;"));
-    assertEquals("exp.renamedA;", JsRenamer.renamePropertiesAndVariables(testMap, "exp.a;"));
-    assertEquals("exp.rb.A;", JsRenamer.renamePropertiesAndVariables(testMap, "exp.longName.A;"));
-    assertEquals("no[\"three\"].renamed3().LONGNAME;",
-        JsRenamer.renamePropertiesAndVariables(testMap, "no['three'].three().LONGNAME;"));
-    assertEquals("rb.renamed3.renamedA();",
-        JsRenamer.renamePropertiesAndVariables(testMap, "rb.renamed3.a();"));
+  public void testRenamePolymerJsExpressionSingleRename() {
+    assertEquals("rb", JsRenamer.renamePolymerJsExpression(testMap, "longName"));
+    assertEquals("exp.renamedA", JsRenamer.renamePolymerJsExpression(testMap, "exp.a"));
+    assertEquals("exp.rb.A", JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.A"));
+    assertEquals("no[\"three\"].renamed3().LONGNAME",
+        JsRenamer.renamePolymerJsExpression(testMap, "no['three'].three().LONGNAME"));
+    assertEquals("rb.renamed3.renamedA()",
+        JsRenamer.renamePolymerJsExpression(testMap, "rb.renamed3.a()"));
   }
 
   @Test
-  public void testRenamePropertiesAndVariablesMultipleRename() {
-    assertEquals("exp.rb.renamedA;",
-        JsRenamer.renamePropertiesAndVariables(testMap, "exp.longName.a;"));
-    assertEquals("no[\"three\"].renamed3().renamedA;",
-        JsRenamer.renamePropertiesAndVariables(testMap, "no['three'].three().a;"));
-    assertEquals("rb.rb.renamedA();",
-        JsRenamer.renamePropertiesAndVariables(testMap, "rb.longName.a();"));
-    assertEquals("renamedA.foo;", JsRenamer.renamePropertiesAndVariables(testMap, "a.foo;"));
-    assertEquals("renamedA.rb;", JsRenamer.renamePropertiesAndVariables(testMap, "a.longName;"));
+  public void testRenamePolymerJsExpressionMultipleRename() {
+    assertEquals("exp.rb.renamedA",
+        JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.a"));
+    assertEquals("no[\"three\"].renamed3().renamedA",
+        JsRenamer.renamePolymerJsExpression(testMap, "no['three'].three().a"));
+    assertEquals("rb.rb.renamedA()",
+        JsRenamer.renamePolymerJsExpression(testMap, "rb.longName.a()"));
+    assertEquals("renamedA.foo", JsRenamer.renamePolymerJsExpression(testMap, "a.foo"));
+    assertEquals("renamedA.rb", JsRenamer.renamePolymerJsExpression(testMap, "a.longName"));
   }
 
   @Test
-  public void testRenamePropertiesAndVariablesPropertyChanged() {
-    assertEquals("exp.rbChanged;",
-        JsRenamer.renamePropertiesAndVariables(testMap, "exp.longNameChanged;"));
+  public void testRenamePolymerJsExpressionPropertyChanged() {
+    assertEquals("exp.rbChanged",
+        JsRenamer.renamePolymerJsExpression(testMap, "exp.longNameChanged"));
   }
 }
