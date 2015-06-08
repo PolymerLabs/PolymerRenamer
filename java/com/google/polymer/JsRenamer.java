@@ -9,9 +9,9 @@
 
 package com.google.polymer;
 
-import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.GETPROP;
 import static com.google.javascript.rhino.Token.NAME;
+import static com.google.javascript.rhino.Token.OBJECTLIT;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 
 import com.google.common.collect.ImmutableMap;
@@ -113,14 +113,6 @@ public class JsRenamer {
       VariableRenameMode variableRenameMode) {
     int type = current.getType();
     switch (type) {
-      case CALL:
-        if (current.hasMoreThanOneChild()) {
-          Node firstChild = current.getFirstChild();
-          if (firstChild.isName() && firstChild.getString().equals("Polymer")) {
-            renamePolymerCallNode(renameMap, current);
-          }
-        }
-        break;
       case GETPROP:
         if (current.hasMoreThanOneChild()) {
           Node secondChild = current.getChildAtIndex(1);
@@ -133,6 +125,9 @@ public class JsRenamer {
         if (variableRenameMode == VariableRenameMode.RENAME_VARIABLES) {
           renameNodeWithString(renameMap, current);
         }
+        break;
+      case OBJECTLIT:
+        renameObjectLiteral(renameMap, current);
         break;
       case STRING_KEY:
         renameNodeWithString(renameMap, current);
@@ -162,28 +157,35 @@ public class JsRenamer {
   }
 
   /**
-   * Performs property renames on a Polymer call node containing an object and a string key of 'is'
-   * with a string node. This indicates the call node is Polymer 0.8 or later.
-   * TODO(robliao): Evaluate expressions if necessary.
+   * Renames all object literals that are standalone or contained in a Polymer v0.8 style call.
+   * This allows behaviors coverage, which are indistinguishable from regular JavaScript objects.
    * @param renameMap A mapping from symbol to renamed symbol.
-   * @param polymerCallNode A call node containing the call to Polymer.
+   * @param objectLit Object literal node.
    */
-  private static void renamePolymerCallNode(
-      ImmutableMap<String, String> renameMap, Node polymerCallNode) {
-    Node polymerInitObjectNode = polymerCallNode.getChildAtIndex(1);
-    if (!polymerInitObjectNode.isObjectLit()) {
-      return;
+  private static void renameObjectLiteral(ImmutableMap<String, String> renameMap, Node objectLit) {
+    ImmutableMap<String, Node> objectMap = convertObjectLitNodeToMap(objectLit);
+    Node parent = objectLit.getParent();
+    if (parent != null && parent.isCall() && parent.hasMoreThanOneChild()) {
+      Node firstCallChild = parent.getFirstChild();
+      if (firstCallChild.isName() && firstCallChild.getString().equals("Polymer")) {
+        if (!objectMap.containsKey("is")) {
+          // This object map is not in a non-Polymer v0.8 or newer call.
+          return;
+        }
+      }
     }
+    renameObjectMap(renameMap, objectMap);
+  }
 
-    ImmutableMap<String, Node> polymerInitObjectMap =
-        convertObjectLitNodeToMap(polymerInitObjectNode);
-    if (!polymerInitObjectMap.containsKey("is")) {
-      // This isn't a Polymer 0.8 or newer call.
-      return;
-    }
-
+  /**
+   * Forward renames to Polymer-relevant properties in the specified object map.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param objectMap A map of keys as property string names to values as nodes.
+   */
+  private static void renameObjectMap(
+      ImmutableMap<String, String> renameMap, ImmutableMap<String, Node> objectMap) {
     // Rename 'computed' and 'observer' property description references.
-    Node propertiesNode = polymerInitObjectMap.get("properties");
+    Node propertiesNode = objectMap.get("properties");
     if ((propertiesNode != null) && propertiesNode.isObjectLit()) {
       ImmutableMap<String, Node> propertiesMap = convertObjectLitNodeToMap(propertiesNode);
       for (Node propertyDescriptorNode : propertiesMap.values()) {
@@ -197,7 +199,7 @@ public class JsRenamer {
     }
 
     // Rename all JavaScript-like expressions in the 'observers' array.
-    Node observersNode = polymerInitObjectMap.get("observers");
+    Node observersNode = objectMap.get("observers");
     if ((observersNode != null) && observersNode.isArrayLit()) {
       for (Node observerItem : observersNode.children()) {
         renamePolymerJsStringNode(renameMap, observerItem);
@@ -205,7 +207,7 @@ public class JsRenamer {
     }
 
     // Rename all JavaScript-like expressions in the listeners descriptor.
-    Node listenersNode = polymerInitObjectMap.get("listeners");
+    Node listenersNode = objectMap.get("listeners");
     if ((listenersNode != null) && listenersNode.isObjectLit()) {
       ImmutableMap<String, Node> listenersMap = convertObjectLitNodeToMap(listenersNode);
       for (Node listenerDescriptorNode : listenersMap.values()) {
