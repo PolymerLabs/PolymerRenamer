@@ -9,6 +9,7 @@
 
 package com.google.polymer;
 
+import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.GETPROP;
 import static com.google.javascript.rhino.Token.NAME;
 import static com.google.javascript.rhino.Token.OBJECTLIT;
@@ -113,6 +114,11 @@ public class JsRenamer {
       VariableRenameMode variableRenameMode) {
     int type = current.getType();
     switch (type) {
+      case CALL:
+        if (isInPolymerCall(current)) {
+          renameCallWithinPolymerCall(renameMap, current);
+        }
+        break;
       case GETPROP:
         if (current.hasMoreThanOneChild()) {
           Node secondChild = current.getChildAtIndex(1);
@@ -156,6 +162,47 @@ public class JsRenamer {
     }
   }
 
+  private static boolean isInPolymerCall(Node node) {
+    while (node != null) {
+      if (node.isCall() && node.hasMoreThanOneChild()) {
+        Node firstChild = node.getFirstChild();
+        if (firstChild.isName() && firstChild.getString().equals("Polymer")) {
+          return true;
+        }
+      }
+      node = node.getParent();
+    }
+    return false;
+  }
+
+  /**
+   * Renames calls in a Polymer element definition.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param call The call node to rename.
+   */
+  private static void renameCallWithinPolymerCall(
+      ImmutableMap<String, String> renameMap, Node call) {
+    /* Rename PolymerElement.prototype.listen(node, eventName, methodName). */
+    if (call.getChildCount() == 4) {
+      Node maybeThisListenGetProp = call.getFirstChild();
+      if (maybeThisListenGetProp.isGetProp()
+          && maybeThisListenGetProp.hasMoreThanOneChild()
+          && maybeThisListenGetProp.getFirstChild().isThis()) {
+        Node maybeName = maybeThisListenGetProp.getChildAtIndex(1);
+        if (maybeName.isString() && maybeName.getString().equals("listen")) {
+          Node arg0 = call.getChildAtIndex(2);
+          Node arg1 = call.getChildAtIndex(3);
+          if (arg0.isString() && arg1.isString()) {
+            String arg1String = arg1.getString();
+            if (renameMap.containsKey(arg1String)) {
+              arg1.setString(renameMap.get(arg1String));
+            }
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Renames all object literals that are standalone or contained in a Polymer v0.8 style call.
    * This allows behaviors coverage, which are indistinguishable from regular JavaScript objects.
@@ -164,15 +211,9 @@ public class JsRenamer {
    */
   private static void renameObjectLiteral(ImmutableMap<String, String> renameMap, Node objectLit) {
     ImmutableMap<String, Node> objectMap = convertObjectLitNodeToMap(objectLit);
-    Node parent = objectLit.getParent();
-    if (parent != null && parent.isCall() && parent.hasMoreThanOneChild()) {
-      Node firstCallChild = parent.getFirstChild();
-      if (firstCallChild.isName() && firstCallChild.getString().equals("Polymer")) {
-        if (!objectMap.containsKey("is")) {
-          // This object map is not in a non-Polymer v0.8 or newer call.
-          return;
-        }
-      }
+    if (isInPolymerCall(objectLit) && !objectMap.containsKey("is")) {
+      // This object map is not in a non-Polymer v0.8 or newer call.
+      return;
     }
     renameObjectMap(renameMap, objectMap);
   }

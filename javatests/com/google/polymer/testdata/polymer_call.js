@@ -69,5 +69,9 @@ Polymer({
       type: String,
       computed: 'compute(coolSymbolName)'
     }
+  },
+  attached: function() {
+    this.listen(this.foo, 'up', 'norename');
+    this.listen(this.foo, 'up', 'coolSymbolName');
   }
 });
