@@ -12,5 +12,8 @@ Polymer({
   ],
   listeners: {
     handleClick: 'coolSymbolName(MY_SYMBOL, testnorename)'
+  },
+  work: function() {
+    this.coolSymbolName = 42;
   }
 });

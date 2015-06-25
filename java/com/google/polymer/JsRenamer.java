@@ -16,6 +16,7 @@ import static com.google.javascript.rhino.Token.OBJECTLIT;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.parsing.Config;
@@ -30,29 +31,48 @@ import com.google.javascript.rhino.StaticSourceFile;
  * Handles all JavaScript renaming.
  */
 public class JsRenamer {
-  private enum VariableRenameMode {
-    /**
-     * Standard renaming that does not attempt to rename NAME nodes.
-     */
-    NO_VARIABLE_RENAMES,
-
+  private enum RenameMode {
     /**
      * Allow for more aggressive renaming in EXPR_RESULT nodes. This used in single expression
      * scripts like Polymer databinding directives.
      */
-    RENAME_VARIABLES
+    RENAME_VARIABLES,
+
+    /**
+     * Perform renaming of GetProp nodes. This is used for Polymer databinding expressions and
+     * Polymer 0.5 Legacy JavaScript code that predates the Closure Polymer Pass.
+     */
+    RENAME_PROPERTIES,
   }
 
   private JsRenamer() {}
 
   /**
-   * Renames properties and reformats JavaScript.
+   * Performs renames on JavaScript supplied from a JavaScript file.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param js The JavaScript code.
+   * @return JavaScript code with renames applied.
+   */
+  public static String rename(ImmutableMap<String, String> renameMap, String js) {
+    Node jsAst = parse(js);
+    ImmutableSet<RenameMode> renameMode = isPolymer05Javascript(jsAst)
+        ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
+        : ImmutableSet.<RenameMode>of();
+    return toSource(renameNode(renameMap, jsAst, renameMode));
+  }
+
+  /**
+   * Renames JavaScript with Property Renaming. This is primarily used for code that predated the
+   * Closure Polymer Pass.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return JavaScript code with renames applied.
    */
   public static String renameProperties(ImmutableMap<String, String> renameMap, String js) {
-    return toSource(renameNode(renameMap, parse(js), VariableRenameMode.NO_VARIABLE_RENAMES));
+    return toSource(renameNode(
+        renameMap,
+        parse(js),
+        ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)));
   }
 
   /**
@@ -64,8 +84,10 @@ public class JsRenamer {
   public static String renamePolymerJsExpression(
       ImmutableMap<String, String> renameMap, String js) {
     // Add parenthesis to convince the parser that the input is a value expression.
-    String renamed =
-        toSource(renameNode(renameMap, parse("(" + js + ")"), VariableRenameMode.RENAME_VARIABLES));
+    String renamed = toSource(renameNode(
+        renameMap,
+        parse("(" + js + ")"),
+        ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)));
     if (renamed.length() > 0) {
       // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
       renamed = renamed.substring(0, renamed.length() - 1);
@@ -83,6 +105,35 @@ public class JsRenamer {
     Config config = ParserRunner.createConfig(false, LanguageMode.ECMASCRIPT6, false, null);
     Node script = ParserRunner.parse(file, js, config, new MutedErrorReporter()).ast;
     return script;
+  }
+
+  /**
+   * Returns true if the supplied node is Polymer 0.5 style JavaScript.
+   * @param node The JavaScript abstract syntax tree to check.
+   */
+  private static boolean isPolymer05Javascript(Node node) {
+    if (isPolymerCall(node) && node.hasMoreThanOneChild()) {
+      Node firstArgument = node.getChildAtIndex(1);
+      if (firstArgument.isString()) {
+        return true;
+      } else if (firstArgument.isObjectLit()) {
+        for (Node stringKey = firstArgument.getFirstChild();
+            stringKey != null;
+            stringKey = stringKey.getNext()) {
+          if (stringKey.isStringKey() && stringKey.getString().equals("is")) {
+            return false;
+          }
+        }
+        return true;
+      }
+    }
+
+    for (Node current = node.getFirstChild(); current != null; current = current.getNext()) {
+      if (isPolymer05Javascript(current)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -107,11 +158,11 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param current The JavaScript abstract syntax tree to rename. Note that this method will mutate
    *        |current| with the renames.
-   * @param variableRenameMode Variable renaming mode to use.
+   * @param renameMode Variable renaming mode to use.
    * @return The renamed abstract syntax tree.
    */
   private static Node renameNode(ImmutableMap<String, String> renameMap, Node current,
-      VariableRenameMode variableRenameMode) {
+      ImmutableSet<RenameMode> renameMode) {
     int type = current.getType();
     switch (type) {
       case CALL:
@@ -120,15 +171,17 @@ public class JsRenamer {
         }
         break;
       case GETPROP:
-        if (current.hasMoreThanOneChild()) {
-          Node secondChild = current.getChildAtIndex(1);
-          if (secondChild.isString()) {
-            renameNodeWithString(renameMap, secondChild);
+        if (renameMode.contains(RenameMode.RENAME_PROPERTIES)) {
+          if (current.hasMoreThanOneChild()) {
+            Node secondChild = current.getChildAtIndex(1);
+            if (secondChild.isString()) {
+              renameNodeWithString(renameMap, secondChild);
+            }
           }
         }
         break;
       case NAME:
-        if (variableRenameMode == VariableRenameMode.RENAME_VARIABLES) {
+        if (renameMode.contains(RenameMode.RENAME_VARIABLES)) {
           renameNodeWithString(renameMap, current);
         }
         break;
@@ -136,11 +189,13 @@ public class JsRenamer {
         renameObjectLiteral(renameMap, current);
         break;
       case STRING_KEY:
-        renameNodeWithString(renameMap, current);
+        if (renameMode.contains(RenameMode.RENAME_PROPERTIES)) {
+          renameNodeWithString(renameMap, current);
+        }
         break;
     }
     for (Node child : current.children()) {
-      renameNode(renameMap, child, variableRenameMode);
+      renameNode(renameMap, child, renameMode);
     }
     return current;
   }
@@ -164,13 +219,18 @@ public class JsRenamer {
 
   private static boolean isInPolymerCall(Node node) {
     while (node != null) {
-      if (node.isCall() && node.hasMoreThanOneChild()) {
-        Node firstChild = node.getFirstChild();
-        if (firstChild.isName() && firstChild.getString().equals("Polymer")) {
-          return true;
-        }
+      if (isPolymerCall(node)) {
+        return true;
       }
       node = node.getParent();
+    }
+    return false;
+  }
+
+  private static boolean isPolymerCall(Node node) {
+    if (node.isCall() && node.hasMoreThanOneChild()) {
+      Node firstChild = node.getFirstChild();
+      return firstChild.isName() && firstChild.getString().equals("Polymer");
     }
     return false;
   }

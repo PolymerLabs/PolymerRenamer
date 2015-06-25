@@ -76,7 +76,7 @@ public class PolymerRenamer {
     if (inputFilename.endsWith("html")) {
       System.out.print(HtmlRenamer.rename(renameMap, inputFileContent));
     } else if (inputFilename.endsWith("js")) {
-      System.out.print(JsRenamer.renameProperties(renameMap, inputFileContent));
+      System.out.print(JsRenamer.rename(renameMap, inputFileContent));
     }
   }
 }
