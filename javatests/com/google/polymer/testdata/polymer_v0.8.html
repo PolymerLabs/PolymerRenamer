@@ -27,6 +27,7 @@
     </template>
     Annotated Computed Property: <span>{{symbolA(prop1, coolSymbolName)}}</span>
     Annotated Computed Property 2: <span>{{dontRenameMe(foo.coolSymbolName, symbolA)}}</span>
+    <x-test b="value" not-renamed="baz" on-symbol-b="coolSymbolName" a-c="20"></x-test>
   </template>
   <script>
     Polymer({
@@ -34,6 +35,6 @@
     });
   </script>
 </dom-module>
-<x-test cool-symbol-name="value" not-renamed="baz" symbol-b="20"></x-test>
+<x-test cool-symbol-name="value" not-renamed="baz" on-symbol-b="coolSymbolName" symbol-b="20"></x-test>
 </body>
 </html>

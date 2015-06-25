@@ -69,6 +69,7 @@ public class HtmlRenamer {
         } else if (tagName.equals("script")) {
           insideScriptElement = true;
         } else {
+          renameAllAnnotatedEventAttributes(element);
           renameAllAttributeValues(element);
         }
       } else if (node instanceof TextNode) {
@@ -111,6 +112,21 @@ public class HtmlRenamer {
       if (attributes != null) {
         for (Attribute attribute : attributes) {
           attribute.setValue(renameStringWithDatabindingDirectives(attribute.getValue()));
+        }
+      }
+    }
+
+    private void renameAllAnnotatedEventAttributes(Element element) {
+      Attributes attributes = element.attributes();
+      if (attributes != null) {
+        for (Attribute attribute : attributes) {
+          String key = attribute.getKey();
+          if (key.startsWith("on-")) {
+            String renamedEventHandler = renameMap.get(attribute.getValue());
+            if (renamedEventHandler != null) {
+              attribute.setValue(renamedEventHandler);
+            }
+          }
         }
       }
     }
@@ -181,17 +197,27 @@ public class HtmlRenamer {
     for (String polymerElementTagName : polymerCustomElements) {
       Elements customElements = document.getElementsByTag(polymerElementTagName);
       for (Element customElement : customElements) {
-        Attributes attributes = customElement.attributes();
-        for (Attribute attribute : attributes) {
-          String renamedProperty = renameMap.get(
-              CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, attribute.getKey()));
-          if (renamedProperty != null) {
-            attribute.setKey(CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_HYPHEN, renamedProperty));
-          }
-        }
+        renameAllAttributeKeys(renameMap, customElement);
       }
     }
 
     return document.toString();
+  }
+
+  private static void renameAllAttributeKeys(
+      ImmutableMap<String, String> renameMap, Element element) {
+    Attributes attributes = element.attributes();
+    for (Attribute attribute : attributes) {
+      String key = attribute.getKey();
+      // Polymer events are referenced as strings. As a result they do not participate in renaming.
+      // Additionally, it is not valid to have a Polymer property start with "on".
+      if (!key.startsWith("on-")) {
+        String renamedProperty = renameMap.get(
+            CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, key));
+        if (renamedProperty != null) {
+          attribute.setKey(CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_HYPHEN, renamedProperty));
+        }
+      }
+    }
   }
 }
