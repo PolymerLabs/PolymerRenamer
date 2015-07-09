@@ -260,9 +260,8 @@ public class JsRenamer {
           && maybeThisListenGetProp.getFirstChild().isThis()) {
         Node maybeName = maybeThisListenGetProp.getChildAtIndex(1);
         if (maybeName.isString() && maybeName.getString().equals("listen")) {
-          Node arg0 = call.getChildAtIndex(2);
           Node arg1 = call.getChildAtIndex(3);
-          if (arg0.isString() && arg1.isString()) {
+          if (arg1.isString()) {
             String arg1String = arg1.getString();
             if (renameMap.containsKey(arg1String)) {
               arg1.setString(renameMap.get(arg1String));

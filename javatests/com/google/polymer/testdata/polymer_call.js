@@ -31,6 +31,7 @@ var behavior = {
   attached: function() {
     this.listen(this.foo, 'up', 'norename');
     this.listen(this.foo, 'up', 'coolSymbolName');
+    this.listen(this.foo, variable, 'coolSymbolName');
     this.listen(this.foo, 'up', coolSymbolName);
     this.$.norename;
     this.$.coolSymbolName;
@@ -82,6 +83,7 @@ Polymer({
   attached: function() {
     this.listen(this.foo, 'up', 'norename');
     this.listen(this.foo, 'up', 'coolSymbolName');
+    this.listen(this.foo, variable, 'coolSymbolName');
     this.listen(this.foo, 'up', coolSymbolName);
     this.$.norename;
     this.$.coolSymbolName;
