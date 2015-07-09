@@ -27,6 +27,15 @@ var behavior = {
   listeners: {
     handleClick: 'coolSymbolName(MY_SYMBOL, testnorename)',
     handleNotRenamed: 'keep(test, testnorename)'
+  },
+  attached: function() {
+    this.listen(this.foo, 'up', 'norename');
+    this.listen(this.foo, 'up', 'coolSymbolName');
+    this.listen(this.foo, 'up', coolSymbolName);
+    this.$.norename;
+    this.$.coolSymbolName;
+    this.$.coolSymbolName.symbolA;
+    element1.element2.$.coolSymbolName;
   }
 };
 Polymer({
@@ -73,6 +82,7 @@ Polymer({
   attached: function() {
     this.listen(this.foo, 'up', 'norename');
     this.listen(this.foo, 'up', 'coolSymbolName');
+    this.listen(this.foo, 'up', coolSymbolName);
     this.$.norename;
     this.$.coolSymbolName;
     this.$.coolSymbolName.symbolA;

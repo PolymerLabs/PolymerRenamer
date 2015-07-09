@@ -166,8 +166,8 @@ public class JsRenamer {
     int type = current.getType();
     switch (type) {
       case CALL:
-        if (isInPolymerCall(current)) {
-          renameCallWithinPolymerCall(renameMap, current);
+        if (isInObjectLit(current)) {
+          renameCall(renameMap, current);
         }
         break;
       case GETPROP:
@@ -227,6 +227,16 @@ public class JsRenamer {
     return false;
   }
 
+  private static boolean isInObjectLit(Node node) {
+    while (node != null) {
+      if (node.isObjectLit()) {
+        return true;
+      }
+      node = node.getParent();
+    }
+    return false;
+  }
+
   private static boolean isPolymerCall(Node node) {
     if (node.isCall() && node.hasMoreThanOneChild()) {
       Node firstChild = node.getFirstChild();
@@ -236,11 +246,11 @@ public class JsRenamer {
   }
 
   /**
-   * Renames calls in a Polymer element definition.
+   * Renames calls that could include property string references.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param call The call node to rename.
    */
-  private static void renameCallWithinPolymerCall(
+  private static void renameCall(
       ImmutableMap<String, String> renameMap, Node call) {
     /* Rename PolymerElement.prototype.listen(node, eventName, methodName). */
     if (call.getChildCount() == 4) {
