@@ -184,7 +184,7 @@ public class HtmlRenamer {
     Document document = Parser.parse(htmlString, "");
     OutputSettings outputSettings = document.outputSettings();
     outputSettings.prettyPrint(false);
-    outputSettings.escapeMode(EscapeMode.xhtml);
+    outputSettings.escapeMode(EscapeMode.extended);
     RenameMode renameMode = RenameMode.POLYMER_0_8;
     Elements polymerDomElements = document.getElementsByTag("dom-module");
     if (polymerDomElements.isEmpty()) {
