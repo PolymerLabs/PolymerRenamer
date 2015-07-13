@@ -27,6 +27,8 @@
     </template>
     Annotated Computed Property: <span>{{symbolA(prop1, coolSymbolName)}}</span>
     Annotated Computed Property 2: <span>{{dontRenameMe(foo.coolSymbolName, symbolA)}}</span>
+    Two-way native element binding: <input value="{{coolSymbolName::input}}">
+    Two-way native element binding 2: <input value="{{notRenamed::input}}">
     <x-test b="value" not-renamed="baz" on-symbol-b="coolSymbolName" a-c="20"></x-test>
   </template>
   <script>

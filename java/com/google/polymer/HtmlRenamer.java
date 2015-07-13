@@ -139,7 +139,7 @@ public class HtmlRenamer {
         switch (t.type) {
           case STRING:
             if (insideBraces) {
-              sb.append(JsRenamer.renamePolymerJsExpression(renameMap, t.value));
+              sb.append(renameDatabindingExpression(t.value));
             } else {
               sb.append(t.value);
             }
@@ -167,6 +167,16 @@ public class HtmlRenamer {
         }
       }
       return sb.toString();
+    }
+
+    private String renameDatabindingExpression(String expression) {
+      // Polymer 1.0 has two-way native element binding syntax which isn't legal Javascript.
+      // See https://www.polymer-project.org/1.0/docs/devguide/data-binding.html#two-way-native.
+      // Expression Format: {{expression::eventName}}
+      // We'll treat this as {{expression::notRenamed}}
+      String[] components = expression.split("::");
+      components[0] = JsRenamer.renamePolymerJsExpression(renameMap, components[0]);
+      return Joiner.on("::").join(components);
     }
   }
 
