@@ -188,14 +188,14 @@ public class JsRenamer {
           if (current.hasMoreThanOneChild()) {
             Node secondChild = current.getChildAtIndex(1);
             if (secondChild.isString()) {
-              renameNodeWithString(renameMap, secondChild);
+              renamePolymerPropertyStringNode(renameMap, secondChild);
             }
           }
         }
         break;
       case NAME:
         if (renameMode.contains(RenameMode.RENAME_VARIABLES)) {
-          renameNodeWithString(renameMap, current);
+          renamePolymerPropertyStringNode(renameMap, current);
         }
         break;
       case OBJECTLIT:
@@ -203,7 +203,7 @@ public class JsRenamer {
         break;
       case STRING_KEY:
         if (renameMode.contains(RenameMode.RENAME_PROPERTIES)) {
-          renameNodeWithString(renameMap, current);
+          renamePolymerPropertyStringNode(renameMap, current);
         }
         break;
     }
@@ -218,7 +218,8 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param node The string node containing the property changed identifier.
    */
-  private static void renameNodeWithString(ImmutableMap<String, String> renameMap, Node node) {
+  private static void renamePolymerPropertyStringNode(
+      ImmutableMap<String, String> renameMap, Node node) {
     String name = node.getString();
     if (renameMap.containsKey(name)) {
       node.setString(renameMap.get(name));
@@ -265,24 +266,30 @@ public class JsRenamer {
    */
   private static void renameCall(
       ImmutableMap<String, String> renameMap, Node call) {
-    /* Rename PolymerElement.prototype.listen(node, eventName, methodName). */
-    if (call.getChildCount() == 4) {
-      Node maybeThisListenGetProp = call.getFirstChild();
-      if (maybeThisListenGetProp.isGetProp()
-          && maybeThisListenGetProp.hasMoreThanOneChild()
-          && maybeThisListenGetProp.getFirstChild().isThis()) {
-        Node maybeName = maybeThisListenGetProp.getChildAtIndex(1);
-        if (maybeName.isString() && maybeName.getString().equals("listen")) {
-          Node arg1 = call.getChildAtIndex(3);
-          if (arg1.isString()) {
-            String arg1String = arg1.getString();
-            if (renameMap.containsKey(arg1String)) {
-              arg1.setString(renameMap.get(arg1String));
-            }
-          }
-        }
+    if (call.getChildCount() == 3) {
+      /* Rename Polymer.IronA11yKeysBehavior.addOwnKeyBinding(eventString, methodName). */
+      if (isThisCallWithMethodName(call, "addOwnKeyBinding")) {
+        // Children [0=this.addOwnKeyBinding, 1=eventString, 2=methodName]
+        renameStringNode(renameMap, call.getChildAtIndex(2));
+      }
+    } else if (call.getChildCount() == 4) {
+      /* Rename PolymerElement.prototype.listen(node, eventName, methodName). */
+      if (isThisCallWithMethodName(call, "listen")) {
+        // Children [0=this.listen, 1=node, 2=eventName, 3=methodName]
+        renameStringNode(renameMap, call.getChildAtIndex(3));
       }
     }
+  }
+
+  private static boolean isThisCallWithMethodName(Node call, String methodName) {
+    Node maybeMethodNameGetProp = call.getFirstChild();
+    if (maybeMethodNameGetProp.isGetProp()
+        && maybeMethodNameGetProp.hasMoreThanOneChild()
+        && maybeMethodNameGetProp.getFirstChild().isThis()) {
+      Node maybeMethodName = maybeMethodNameGetProp.getChildAtIndex(1);
+      return maybeMethodName.isString() && maybeMethodName.getString().equals(methodName);
+    }
+    return false;
   }
 
   /**
@@ -337,6 +344,30 @@ public class JsRenamer {
         renamePolymerJsStringNode(renameMap, listenerDescriptorNode);
       }
     }
+
+    // Rename the keyBindings string to method string map using in Polymer.IronA11yKeysBehavior.
+    Node keyBindingsNode = objectMap.get("keyBindings");
+    if ((keyBindingsNode != null) && keyBindingsNode.isObjectLit()) {
+      renameKeyBindingsNode(renameMap, keyBindingsNode);
+    }
+
+    if (renameMap.containsKey("keyBindings")) {
+      Node renamedKeyBindingsNode = objectMap.get(renameMap.get("keyBindings"));
+      if ((renamedKeyBindingsNode != null) && renamedKeyBindingsNode.isObjectLit()) {
+        renameKeyBindingsNode(renameMap, renamedKeyBindingsNode);
+      }
+    }
+  }
+
+  private static void renameKeyBindingsNode(ImmutableMap<String, String> renameMap, Node node) {
+    ImmutableMap<String, Node> keyBindingsMap = convertObjectLitNodeToMap(node);
+    for (Node keyBindingMethodStringNode : keyBindingsMap.values()) {
+      if (!keyBindingMethodStringNode.isString()) {
+        // A non-string means it's a map we don't expect.
+        break;
+      }
+      renameStringNode(renameMap, keyBindingMethodStringNode);
+    }
   }
 
   /**
@@ -358,6 +389,23 @@ public class JsRenamer {
       System.err.println(e);
     }
     node.setString(js);
+  }
+
+  /**
+   * Renames a string node as if the entire string contained the symbol.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param node String node to rename in entirety. Can be null. Will not attempt a rename if the
+   *     node is not a string node.
+   */
+  private static void renameStringNode(ImmutableMap<String, String> renameMap, Node node) {
+    if (node == null || !node.isString()) {
+      return;
+    }
+
+    String symbolName = node.getString();
+    if (renameMap.containsKey(symbolName)) {
+      node.setString(renameMap.get(symbolName));
+    }
   }
 
   private static ImmutableMap<String, Node> convertObjectLitNodeToMap(Node objectLiteralNode) {

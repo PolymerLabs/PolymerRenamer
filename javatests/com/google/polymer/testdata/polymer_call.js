@@ -20,6 +20,14 @@ var behavior = {
       observer: 'someOtherObserver'
     }
   },
+  keyBindings: {
+    'up': 'coolSymbolName',
+    'down': 'norename',
+    'left': 'symbolB'
+  },
+  kB: {
+    'right': 'MY_SYMBOL'
+  },
   observers: [
     'MY_SYMBOL(norename, symbolA, symbolB)',
     'unrenamed(symbol, here)'
@@ -37,6 +45,8 @@ var behavior = {
     this.$.coolSymbolName;
     this.$.coolSymbolName.symbolA;
     element1.element2.$.coolSymbolName;
+    this.addOwnKeyBinding(foo, 'MY_SYMBOL');
+    this.addOwnKeyBinding(foo, 'norename');
   }
 };
 Polymer({
@@ -61,6 +71,14 @@ Polymer({
       computed: 'norename(test, testnorename)',
       observer: 'someOtherObserver'
     }
+  },
+  keyBindings: {
+    'up': 'coolSymbolName',
+    'down': 'norename',
+    'left': 'symbolB'
+  },
+  kB: {
+    'right': 'MY_SYMBOL'
   },
   observers: [
     'MY_SYMBOL(norename, symbolA, symbolB)',
@@ -89,5 +107,7 @@ Polymer({
     this.$.coolSymbolName;
     this.$.coolSymbolName.symbolA;
     element1.element2.$.coolSymbolName;
+    this.addOwnKeyBinding(foo, 'MY_SYMBOL');
+    this.addOwnKeyBinding(foo, 'norename');
   }
 });
