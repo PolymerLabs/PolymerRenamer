@@ -13,6 +13,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,7 +32,7 @@ public class JsRenamerTest {
           "three", "renamed3");
 
   @Test
-  public void testRenamePropertiesEmptyMap() {
+  public void testRenamePropertiesEmptyMap() throws Exception {
     assertEquals("no;", JsRenamer.renameProperties(emptyMap, "no;"));
     assertEquals("no.renames;", JsRenamer.renameProperties(emptyMap, "no.renames;"));
     assertEquals("no.renames.here;", JsRenamer.renameProperties(emptyMap, "no.renames.here;"));
@@ -40,7 +41,7 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePropertiesSingleRename() {
+  public void testRenamePropertiesSingleRename() throws Exception {
     assertEquals("longName;", JsRenamer.renameProperties(testMap, "longName;"));
     assertEquals("exp.renamedA;", JsRenamer.renameProperties(testMap, "exp.a;"));
     assertEquals("exp.rb.A;", JsRenamer.renameProperties(testMap, "exp.longName.A;"));
@@ -51,7 +52,7 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePropertiesMultipleRename() {
+  public void testRenamePropertiesMultipleRename() throws Exception {
     assertEquals("exp.rb.renamedA;", JsRenamer.renameProperties(testMap, "exp.longName.a;"));
     assertEquals("no[\"three\"].renamed3().renamedA;",
         JsRenamer.renameProperties(testMap, "no['three'].three().a;"));
@@ -59,12 +60,12 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePropertiesPropertyChanged() {
+  public void testRenamePropertiesPropertyChanged() throws Exception {
     assertEquals("exp.rbChanged;", JsRenamer.renameProperties(testMap, "exp.longNameChanged;"));
   }
 
   @Test
-  public void testRenamePolymerJsExpressionEmptyMap() {
+  public void testRenamePolymerJsExpressionEmptyMap() throws Exception {
     assertEquals("no", JsRenamer.renamePolymerJsExpression(emptyMap, "no"));
     assertEquals("no.renames", JsRenamer.renamePolymerJsExpression(emptyMap, "no.renames"));
     assertEquals("no.renames.here",
@@ -76,7 +77,7 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePolymerJsExpressionSingleRename() {
+  public void testRenamePolymerJsExpressionSingleRename() throws Exception {
     assertEquals("rb", JsRenamer.renamePolymerJsExpression(testMap, "longName"));
     assertEquals("exp.renamedA", JsRenamer.renamePolymerJsExpression(testMap, "exp.a"));
     assertEquals("exp.rb.A", JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.A"));
@@ -87,7 +88,7 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePolymerJsExpressionMultipleRename() {
+  public void testRenamePolymerJsExpressionMultipleRename() throws Exception {
     assertEquals("exp.rb.renamedA",
         JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.a"));
     assertEquals("no[\"three\"].renamed3().renamedA",
@@ -99,8 +100,19 @@ public class JsRenamerTest {
   }
 
   @Test
-  public void testRenamePolymerJsExpressionPropertyChanged() {
+  public void testRenamePolymerJsExpressionPropertyChanged() throws Exception {
     assertEquals("exp.rbChanged",
         JsRenamer.renamePolymerJsExpression(testMap, "exp.longNameChanged"));
+  }
+
+  @Test
+  public void testError() {
+    JavaScriptParsingException exception = null;
+    try {
+      JsRenamer.renamePolymerJsExpression(testMap, "InvalidJs(Foo.*)");
+    } catch (JavaScriptParsingException e) {
+      exception = e;
+    }
+    Assert.assertNotNull(exception);
   }
 }

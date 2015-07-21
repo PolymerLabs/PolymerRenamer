@@ -27,6 +27,9 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
 /**
  * Handles all JavaScript renaming.
  */
@@ -52,8 +55,10 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return JavaScript code with renames applied.
+   * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  public static String rename(ImmutableMap<String, String> renameMap, String js) {
+  public static String rename(ImmutableMap<String, String> renameMap, String js)
+      throws JavaScriptParsingException {
     Node jsAst = parse(js);
     ImmutableSet<RenameMode> renameMode = isPolymer05Javascript(jsAst)
         ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
@@ -67,8 +72,10 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return JavaScript code with renames applied.
+   * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  public static String renameProperties(ImmutableMap<String, String> renameMap, String js) {
+  public static String renameProperties(ImmutableMap<String, String> renameMap, String js)
+      throws JavaScriptParsingException {
     return toSource(renameNode(
         renameMap,
         parse(js),
@@ -80,9 +87,10 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return The JavaScript-like expression with renames applied.
+   * @throws JavaScriptParsingException if parse errors were encountered.
    */
   public static String renamePolymerJsExpression(
-      ImmutableMap<String, String> renameMap, String js) {
+      ImmutableMap<String, String> renameMap, String js) throws JavaScriptParsingException {
     // Add parenthesis to convince the parser that the input is a value expression.
     String renamed = toSource(renameNode(
         renameMap,
@@ -99,11 +107,16 @@ public class JsRenamer {
    * Parses the given JavaScript string into an abstract syntax tree.
    * @param js The JavaScript code.
    * @return An abstract syntax tree.
+   * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  private static Node parse(String js) {
+  private static Node parse(String js) throws JavaScriptParsingException {
     StaticSourceFile file = new SimpleSourceFile("input", false);
     Config config = ParserRunner.createConfig(false, LanguageMode.ECMASCRIPT6, false, null);
-    Node script = ParserRunner.parse(file, js, config, new MutedErrorReporter()).ast;
+    JavaScriptErrorReporter errorReporter = new JavaScriptErrorReporter(js);
+    Node script = ParserRunner.parse(file, js, config, errorReporter).ast;
+    if (script == null) {
+      throw new JavaScriptParsingException(errorReporter.getWarningAndErrorOutput());
+    }
     return script;
   }
 
@@ -338,7 +351,13 @@ public class JsRenamer {
       return;
     }
 
-    node.setString(renamePolymerJsExpression(renameMap, node.getString()));
+    String js = node.getString();
+    try {
+      js = renamePolymerJsExpression(renameMap, node.getString());
+    } catch (JavaScriptParsingException e) {
+      System.err.println(e);
+    }
+    node.setString(js);
   }
 
   private static ImmutableMap<String, Node> convertObjectLitNodeToMap(Node objectLiteralNode) {
@@ -352,17 +371,56 @@ public class JsRenamer {
   }
 
   /**
-   * JavaScript syntax checking is a non-goal for the renamer since other tools like Closure will
-   * catch issues at compile time and the rest of the issues will be found by the interpreter at
-   * runtime. As a result, this error reporter reports nothing.
+   * While most of the JavaScript will pass through the Closure Compiler with syntax checking, the
+   * Polymer HTML databinding expressions will not. This outputs errors directly from the Closure
+   * Compiler to System.err.
    */
-  private static class MutedErrorReporter implements ErrorReporter {
-    public MutedErrorReporter() {}
+  private static class JavaScriptErrorReporter implements ErrorReporter {
+    private final String[] jsLines;
+    private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    private final PrintStream outputStream = new PrintStream(byteArrayOutputStream);
+
+    /**
+     * Constructs a JavaScriptErrorReporter that outputs warnings and errors using |js| as context.
+     * @param js JavaScript source for line context.
+     */
+    public JavaScriptErrorReporter(String js) {
+      this.jsLines = js.split("\r\n|\r|\n");
+    }
+
+    /**
+     * Returns the stream output of warnings and errors as a string.
+     */
+    public String getWarningAndErrorOutput() {
+      return byteArrayOutputStream.toString();
+    }
 
     @Override
-    public void warning(String message, String sourceName, int line, int lineOffset) {}
+    public void warning(String message, String sourceName, int line, int lineOffset) {
+      outputStream.printf("WARNING: (%d:%d) %s%n", line, lineOffset, message);
+      printSource(9, line, lineOffset);
+    }
 
     @Override
-    public void error(String message, String sourceName, int line, int lineOffset) {}
+    public void error(String message, String sourceName, int line, int lineOffset) {
+      outputStream.printf("ERROR: (%d:%d) %s%n", line, lineOffset, message);
+      printSource(7, line, lineOffset);
+    }
+
+    private void printSource(int columnPadding, int line, int lineOffset) {
+      if (line <= jsLines.length) {
+        printSpaces(columnPadding);
+        outputStream.printf("%s%n", jsLines[line - 1]);
+
+        printSpaces(columnPadding + lineOffset - 1);
+        outputStream.println("^");
+      }
+    }
+
+    private void printSpaces(int numberOfSpaces) {
+      for (int i = 0; i < numberOfSpaces; i++) {
+        outputStream.print(" ");
+      }
+    }
   }
 }

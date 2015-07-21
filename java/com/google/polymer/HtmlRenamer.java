@@ -77,7 +77,13 @@ public class HtmlRenamer {
         textNode.text(renameStringWithDatabindingDirectives(textNode.getWholeText()));
       } else if (insideScriptElement && node instanceof DataNode) {
         DataNode dataNode = (DataNode) node;
-        dataNode.setWholeData(JsRenamer.renameProperties(renameMap, dataNode.getWholeData()));
+        String js = dataNode.getWholeData();
+        try {
+          js = JsRenamer.renameProperties(renameMap, js);
+        } catch (JavaScriptParsingException e) {
+          System.err.println(e);
+        }
+        dataNode.setWholeData(js);
       }
     }
 
@@ -175,7 +181,11 @@ public class HtmlRenamer {
       // Expression Format: {{expression::eventName}}
       // We'll treat this as {{expression::notRenamed}}
       String[] components = expression.split("::");
-      components[0] = JsRenamer.renamePolymerJsExpression(renameMap, components[0]);
+      try {
+        components[0] = JsRenamer.renamePolymerJsExpression(renameMap, components[0]);
+      } catch (JavaScriptParsingException e) {
+        System.err.println(e);
+      }
       return Joiner.on("::").join(components);
     }
   }
