@@ -112,7 +112,7 @@ public class JsRenamer {
    */
   private static Node parse(String js) throws JavaScriptParsingException {
     StaticSourceFile file = new SimpleSourceFile("input", false);
-    Config config = ParserRunner.createConfig(false, LanguageMode.ECMASCRIPT6, false, null);
+    Config config = ParserRunner.createConfig(false, LanguageMode.ECMASCRIPT6, null);
     JavaScriptErrorReporter errorReporter = new JavaScriptErrorReporter(js);
     Node script = ParserRunner.parse(file, js, config, errorReporter).ast;
     if (script == null) {
