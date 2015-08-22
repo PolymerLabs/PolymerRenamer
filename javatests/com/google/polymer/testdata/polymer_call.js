@@ -1,3 +1,4 @@
+'use strict';
 var behavior = {
   properties: {
     coolSymbolName: String,

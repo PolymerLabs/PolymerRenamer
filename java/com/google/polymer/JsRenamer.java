@@ -29,6 +29,7 @@ import com.google.javascript.rhino.StaticSourceFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.Set;
 
 /**
  * Handles all JavaScript renaming.
@@ -157,6 +158,13 @@ public class JsRenamer {
   private static String toSource(Node node) {
     CompilerOptions options = new CompilerOptions();
     options.prettyPrint = false;
+    // The Closure Compiler treats the 'use strict' directive as a property of a node. CodeBuilder
+    // doesn't consider directives during its code generation. Instead, it inserts the 'use strict'
+    // directive if it is in a strict language mode.
+    Set<String> directives = node.getDirectives();
+    if ((directives != null) && directives.contains("use strict")) {
+      options.setLanguage(CompilerOptions.LanguageMode.ECMASCRIPT6_STRICT);
+    }
     options.skipAllCompilerPasses();
     Compiler compiler = new Compiler();
     compiler.disableThreads();
