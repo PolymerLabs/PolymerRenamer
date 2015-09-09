@@ -281,9 +281,9 @@ public class JsRenamer {
         renameStringNode(renameMap, call.getChildAtIndex(2));
       }
     } else if (call.getChildCount() == 4) {
-      /* Rename PolymerElement.prototype.listen(node, eventName, methodName). */
-      if (isThisCallWithMethodName(call, "listen")) {
-        // Children [0=this.listen, 1=node, 2=eventName, 3=methodName]
+      /* Rename PolymerElement.prototype.{un}listen(node, eventName, methodName). */
+      if (isThisCallWithMethodName(call, "listen") || isThisCallWithMethodName(call, "unlisten")) {
+        // Children [0=this.{un}listen, 1=node, 2=eventName, 3=methodName]
         renameStringNode(renameMap, call.getChildAtIndex(3));
       }
     }

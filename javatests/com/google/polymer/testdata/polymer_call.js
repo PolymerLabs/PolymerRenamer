@@ -110,5 +110,9 @@ Polymer({
     element1.element2.$.coolSymbolName;
     this.addOwnKeyBinding(foo, 'MY_SYMBOL');
     this.addOwnKeyBinding(foo, 'norename');
+    this.unlisten(this.foo, 'up', 'norename');
+    this.unlisten(this.foo, 'up', 'coolSymbolName');
+    this.unlisten(this.foo, variable, 'coolSymbolName');
+    this.unlisten(this.foo, 'up', coolSymbolName);
   }
 });
