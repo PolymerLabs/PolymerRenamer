@@ -35,6 +35,21 @@ import java.util.Set;
  * Handles all JavaScript renaming.
  */
 public class JsRenamer {
+  /**
+   * Specifies the JavaScript output format.
+   */
+  public enum OutputFormat {
+    /**
+     * Output JavaScript stripped of most formatting whitespace.
+     */
+    MINIFIED,
+
+    /**
+     * Output JavaScript in a "pretty" format.
+     */
+    PRETTY,
+  }
+
   private enum RenameMode {
     /**
      * Allow for more aggressive renaming in EXPR_RESULT nodes. This used in single expression
@@ -55,16 +70,18 @@ public class JsRenamer {
    * Performs renames on JavaScript supplied from a JavaScript file.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
+   * @param outputFormat The source output format.
    * @return JavaScript code with renames applied.
    * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  public static String rename(ImmutableMap<String, String> renameMap, String js)
+  public static String rename(
+      ImmutableMap<String, String> renameMap, String js, OutputFormat outputFormat)
       throws JavaScriptParsingException {
     Node jsAst = parse(js);
     ImmutableSet<RenameMode> renameMode = isPolymer05Javascript(jsAst)
         ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
         : ImmutableSet.<RenameMode>of();
-    return toSource(renameNode(renameMap, jsAst, renameMode));
+    return toSource(renameNode(renameMap, jsAst, renameMode), outputFormat);
   }
 
   /**
@@ -77,10 +94,9 @@ public class JsRenamer {
    */
   public static String renameProperties(ImmutableMap<String, String> renameMap, String js)
       throws JavaScriptParsingException {
-    return toSource(renameNode(
-        renameMap,
-        parse(js),
-        ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)));
+    return toSource(
+        renameNode(renameMap, parse(js), ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)),
+        OutputFormat.MINIFIED);
   }
 
   /**
@@ -93,10 +109,10 @@ public class JsRenamer {
   public static String renamePolymerJsExpression(
       ImmutableMap<String, String> renameMap, String js) throws JavaScriptParsingException {
     // Add parenthesis to convince the parser that the input is a value expression.
-    String renamed = toSource(renameNode(
-        renameMap,
-        parse("(" + js + ")"),
-        ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)));
+    String renamed = toSource(
+        renameNode(renameMap, parse("(" + js + ")"),
+            ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
+        OutputFormat.MINIFIED);
     if (renamed.length() > 0) {
       // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
       renamed = renamed.substring(0, renamed.length() - 1);
@@ -153,11 +169,12 @@ public class JsRenamer {
   /**
    * Outputs the source equivalent of the abstract syntax tree.
    * @param node The JavaScript abstract syntax tree.
+   * @param outputFormat The source output format.
    * @return The equivalent JavaScript source.
    */
-  private static String toSource(Node node) {
+  private static String toSource(Node node, OutputFormat outputFormat) {
     CompilerOptions options = new CompilerOptions();
-    options.prettyPrint = false;
+    options.prettyPrint = (outputFormat == OutputFormat.PRETTY);
     // The Closure Compiler treats the 'use strict' directive as a property of a node. CodeBuilder
     // doesn't consider directives during its code generation. Instead, it inserts the 'use strict'
     // directive if it is in a strict language mode.

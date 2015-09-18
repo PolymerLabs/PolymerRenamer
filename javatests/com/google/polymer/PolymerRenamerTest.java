@@ -92,6 +92,21 @@ public class PolymerRenamerTest {
   }
 
   @Test
+  public void testRunPolymerPrettyCall() {
+    PolymerRenamer.main(new String[] {
+        "--jsPrettyPrint",
+        getFilePathFromTestData("rename.map"),
+        getFilePathFromTestData("polymer_call_pretty.js")});
+    try {
+      assertEquals(getFileContent(getFilePathFromTestData("polymer_call_pretty_expected.js")),
+          outStream.toString());
+    } catch (FileNotFoundException e) {
+      fail(e.toString());
+    }
+    assertEquals("", errStream.toString());
+  }
+
+  @Test
   public void testRunPolymerLegacyCall() {
     PolymerRenamer.main(new String[] {
         getFilePathFromTestData("rename.map"),

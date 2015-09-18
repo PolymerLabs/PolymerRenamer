@@ -49,13 +49,20 @@ public class PolymerRenamer {
    *        second being the input file.
    */
   public static void main(String[] args) {
-    if (args.length != 2) {
-      System.out.println("The Polymer Renamer");
-      System.out.println("Args: <Property Map Filename> <Input Filename>");
+    if (args.length < 2 || args.length > 3) {
+      printUsage();
       return;
     }
 
-    String propertyMapFilename = args[0];
+    boolean prettyPrint = false;
+    prettyPrint = args[0].equals("--jsPrettyPrint");
+    if ((prettyPrint && (args.length != 3))
+        || (!prettyPrint && (args.length == 3))) {
+      printUsage();
+      return;
+    }
+
+    String propertyMapFilename = args[args.length - 2];
     ImmutableMap<String, String> renameMap;
     try {
       renameMap = getRenameMap(propertyMapFilename);
@@ -64,7 +71,7 @@ public class PolymerRenamer {
       return;
     }
 
-    String inputFilename = args[1];
+    String inputFilename = args[args.length - 1];
     String inputFileContent;
     try {
       inputFileContent = getFileContent(inputFilename);
@@ -77,12 +84,20 @@ public class PolymerRenamer {
       System.out.print(HtmlRenamer.rename(renameMap, inputFileContent));
     } else if (inputFilename.endsWith("js")) {
       try {
-        System.out.print(JsRenamer.rename(renameMap, inputFileContent));
+        JsRenamer.OutputFormat outputFormat =
+            prettyPrint ? JsRenamer.OutputFormat.PRETTY : JsRenamer.OutputFormat.MINIFIED;
+        System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
       } catch (JavaScriptParsingException e) {
         System.err.printf("Error encountered parsing %s.%n", inputFilename);
         System.err.println(e);
         System.exit(1);
       }
     }
+  }
+
+  private static void printUsage() {
+    System.out.println("The Polymer Renamer");
+    System.out.println("Args: [--jsPrettyPrint] <Property Map Filename> <Input Filename>");
+    System.out.println("  --jsPrettyPrint    For JavaScript files, output in indented form.");
   }
 }
