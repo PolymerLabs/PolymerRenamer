@@ -20,7 +20,7 @@
     <div selected>
       Another selected div.
     </div>
-    <template if="{{ab==42}}">
+    <template if="{{ab==42}}" quoted?="{{b(a,'b')}}">
       symbolA is 42.
     </template>
     Annotated Computed Property: <span>{{ab(prop1,b)}}</span>

@@ -22,7 +22,7 @@
     <div selected>
       Another selected div.
     </div>
-    <template if="{{symbolA == 42}}">
+    <template if="{{symbolA == 42}}" quoted?="{{coolSymbolName(a,'b')}}">
       symbolA is 42.
     </template>
     Annotated Computed Property: <span>{{symbolA(prop1, coolSymbolName)}}</span>

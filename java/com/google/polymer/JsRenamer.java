@@ -48,6 +48,11 @@ public class JsRenamer {
      * Output JavaScript in a "pretty" format.
      */
     PRETTY,
+
+    /**
+     * Output string literals using single quotes.
+     */
+    SINGLE_QUOTE_STRINGS,
   }
 
   private enum RenameMode {
@@ -70,12 +75,12 @@ public class JsRenamer {
    * Performs renames on JavaScript supplied from a JavaScript file.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
-   * @param outputFormat The source output format.
+   * @param outputFormat The source output format options.
    * @return JavaScript code with renames applied.
    * @throws JavaScriptParsingException if parse errors were encountered.
    */
   public static String rename(
-      ImmutableMap<String, String> renameMap, String js, OutputFormat outputFormat)
+      ImmutableMap<String, String> renameMap, String js, ImmutableSet<OutputFormat> outputFormat)
       throws JavaScriptParsingException {
     Node jsAst = parse(js);
     ImmutableSet<RenameMode> renameMode = isPolymer05Javascript(jsAst)
@@ -96,7 +101,7 @@ public class JsRenamer {
       throws JavaScriptParsingException {
     return toSource(
         renameNode(renameMap, parse(js), ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)),
-        OutputFormat.MINIFIED);
+        ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED));
   }
 
   /**
@@ -112,7 +117,7 @@ public class JsRenamer {
     String renamed = toSource(
         renameNode(renameMap, parse("(" + js + ")"),
             ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
-        OutputFormat.MINIFIED);
+        ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED, OutputFormat.SINGLE_QUOTE_STRINGS));
     if (renamed.length() > 0) {
       // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
       renamed = renamed.substring(0, renamed.length() - 1);
@@ -169,12 +174,13 @@ public class JsRenamer {
   /**
    * Outputs the source equivalent of the abstract syntax tree.
    * @param node The JavaScript abstract syntax tree.
-   * @param outputFormat The source output format.
+   * @param outputFormat The source output format options.
    * @return The equivalent JavaScript source.
    */
-  private static String toSource(Node node, OutputFormat outputFormat) {
+  private static String toSource(Node node, ImmutableSet<OutputFormat> outputFormat) {
     CompilerOptions options = new CompilerOptions();
-    options.prettyPrint = (outputFormat == OutputFormat.PRETTY);
+    options.prettyPrint = outputFormat.contains(OutputFormat.PRETTY);
+    options.setPreferSingleQuotes(outputFormat.contains(OutputFormat.SINGLE_QUOTE_STRINGS));
     // The Closure Compiler treats the 'use strict' directive as a property of a node. CodeBuilder
     // doesn't consider directives during its code generation. Instead, it inserts the 'use strict'
     // directive if it is in a strict language mode.

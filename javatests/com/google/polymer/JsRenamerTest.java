@@ -81,7 +81,7 @@ public class JsRenamerTest {
     assertEquals("rb", JsRenamer.renamePolymerJsExpression(testMap, "longName"));
     assertEquals("exp.renamedA", JsRenamer.renamePolymerJsExpression(testMap, "exp.a"));
     assertEquals("exp.rb.A", JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.A"));
-    assertEquals("no[\"three\"].renamed3().LONGNAME",
+    assertEquals("no[\'three\'].renamed3().LONGNAME",
         JsRenamer.renamePolymerJsExpression(testMap, "no['three'].three().LONGNAME"));
     assertEquals("rb.renamed3.renamedA()",
         JsRenamer.renamePolymerJsExpression(testMap, "rb.renamed3.a()"));
@@ -91,7 +91,7 @@ public class JsRenamerTest {
   public void testRenamePolymerJsExpressionMultipleRename() throws Exception {
     assertEquals("exp.rb.renamedA",
         JsRenamer.renamePolymerJsExpression(testMap, "exp.longName.a"));
-    assertEquals("no[\"three\"].renamed3().renamedA",
+    assertEquals("no[\'three\'].renamed3().renamedA",
         JsRenamer.renamePolymerJsExpression(testMap, "no['three'].three().a"));
     assertEquals("rb.rb.renamedA()",
         JsRenamer.renamePolymerJsExpression(testMap, "rb.longName.a()"));

@@ -10,6 +10,7 @@
 package com.google.polymer;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -84,8 +85,9 @@ public class PolymerRenamer {
       System.out.print(HtmlRenamer.rename(renameMap, inputFileContent));
     } else if (inputFilename.endsWith("js")) {
       try {
-        JsRenamer.OutputFormat outputFormat =
-            prettyPrint ? JsRenamer.OutputFormat.PRETTY : JsRenamer.OutputFormat.MINIFIED;
+        ImmutableSet<JsRenamer.OutputFormat> outputFormat =
+            ImmutableSet.<JsRenamer.OutputFormat>of(
+                prettyPrint ? JsRenamer.OutputFormat.PRETTY : JsRenamer.OutputFormat.MINIFIED);
         System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
       } catch (JavaScriptParsingException e) {
         System.err.printf("Error encountered parsing %s.%n", inputFilename);
