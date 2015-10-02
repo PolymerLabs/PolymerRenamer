@@ -10,10 +10,10 @@
 package com.google.polymer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -106,13 +106,47 @@ public class JsRenamerTest {
   }
 
   @Test
+  public void testDeepPathObserverExpressions() throws Exception {
+    assertEquals("renamedA(renamed3.*)",
+        JsRenamer.renamePolymerJsExpression(testMap, "a(three.*)"));
+    assertEquals("renamedA(renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "a(three.*, longName)"));
+    assertEquals("renamedA(renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "a(three.* ,longName)"));
+    assertEquals("renamedA(renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "a(three.* , longName)"));
+    assertEquals("renamedA(renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "a(three.*,longName)"));
+    assertEquals("threeArgs(one,renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "threeArgs(one, three.*, longName)"));
+    assertEquals("b.renamed3.rb(one,renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(testMap, "b.three.longName(one, three.*, longName)"));
+    assertEquals("b.renamed3.rb(one,root.renamed3.*,rb)",
+        JsRenamer.renamePolymerJsExpression(
+            testMap, "b.three.longName(one, root.three.*, longName)"));
+  }
+
+  @Test
+  public void testPolymerArraySyntax() throws Exception {
+    assertEquals("notRenamed.0.foo",
+        JsRenamer.renamePolymerJsExpression(testMap, "notRenamed.0.foo"));
+    assertEquals("rb.0.prop", JsRenamer.renamePolymerJsExpression(testMap, "longName.0.prop"));
+    assertEquals("notRenamed.1.renamed3",
+        JsRenamer.renamePolymerJsExpression(testMap, "notRenamed.1.three"));
+    assertEquals("renamedA.1.2.4.renamed3",
+        JsRenamer.renamePolymerJsExpression(testMap, "a.1.2.4.three"));
+    assertEquals("renamedA.1.rb.4.renamed3",
+        JsRenamer.renamePolymerJsExpression(testMap, "a.1.longName.4.three"));
+  }
+
+  @Test
   public void testError() {
     JavaScriptParsingException exception = null;
     try {
-      JsRenamer.renamePolymerJsExpression(testMap, "InvalidJs(Foo.*)");
+      JsRenamer.renamePolymerJsExpression(testMap, "InvalidJs)a,b,c(");
     } catch (JavaScriptParsingException e) {
       exception = e;
     }
-    Assert.assertNotNull(exception);
+    assertNotNull(exception);
   }
 }

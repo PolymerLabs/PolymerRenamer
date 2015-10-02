@@ -15,6 +15,7 @@ import static com.google.javascript.rhino.Token.NAME;
 import static com.google.javascript.rhino.Token.OBJECTLIT;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.Compiler;
@@ -30,6 +31,8 @@ import com.google.javascript.rhino.StaticSourceFile;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Handles all JavaScript renaming.
@@ -68,6 +71,10 @@ public class JsRenamer {
      */
     RENAME_PROPERTIES,
   }
+
+  // Pattern from
+  // https://github.com/Polymer/polymer/blob/master/src/standard/effectBuilder.html
+  private static final Pattern METHOD_PATTERN = Pattern.compile("([^\\s]+)\\((.*)\\)");
 
   private JsRenamer() {}
 
@@ -113,16 +120,53 @@ public class JsRenamer {
    */
   public static String renamePolymerJsExpression(
       ImmutableMap<String, String> renameMap, String js) throws JavaScriptParsingException {
-    // Add parenthesis to convince the parser that the input is a value expression.
-    String renamed = toSource(
-        renameNode(renameMap, parse("(" + js + ")"),
-            ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
-        ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED, OutputFormat.SINGLE_QUOTE_STRINGS));
-    if (renamed.length() > 0) {
-      // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
-      renamed = renamed.substring(0, renamed.length() - 1);
+    try {
+      // Add parenthesis to convince the parser that the input is a value expression.
+      String renamed = toSource(
+          renameNode(renameMap, parse("(" + js + ")"),
+              ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
+          ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED, OutputFormat.SINGLE_QUOTE_STRINGS));
+      if (renamed.length() > 0) {
+        // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
+        renamed = renamed.substring(0, renamed.length() - 1);
+      }
+      return renamed;
+    } catch (JavaScriptParsingException javaScriptParsingException) {
+      // If we're here, the Closure Compiler couldn't quite figure it out. Fallback to Polymer
+      // style expression parsing to see if we can fix it up manually. If not, forward the error.
+      Matcher methodMatcher = METHOD_PATTERN.matcher(js);
+      if (methodMatcher.matches()) {
+        String methodName = renamePolymerPathExpression(renameMap, methodMatcher.group(1));
+        String[] arguments = methodMatcher.group(2).split("\\s*,\\s*");
+        for (int i = 0; i < arguments.length; i++) {
+          arguments[i] = renamePolymerPathExpression(renameMap, arguments[i]);
+        }
+        return String.format("%s(%s)", methodName, Joiner.on(",").join(arguments));
+      } else if (js.contains(".")) {
+        return renamePolymerPathExpression(renameMap, js);
+      }
+      throw javaScriptParsingException;
     }
-    return renamed;
+  }
+
+  /**
+   * Renames path expressions without using the Closure Compiler for parsing.
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param pathExpression The path expression to rename.
+   * @return The renamed path expression.
+   */
+  private static String renamePolymerPathExpression(
+      ImmutableMap<String, String> renameMap, String pathExpression) {
+    if (renameMap.containsKey(pathExpression)) {
+      return renameMap.get(pathExpression);
+    } else if (pathExpression.contains(".")) {
+      String[] components = pathExpression.split("\\.");
+      for (int i = 0; i < components.length; i++) {
+        components[i] = renamePolymerPathExpression(renameMap,  components[i]);
+      }
+      return Joiner.on(".").join(components);
+    }
+    return pathExpression;
   }
 
   /**
