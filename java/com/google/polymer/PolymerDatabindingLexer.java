@@ -43,8 +43,11 @@ public class PolymerDatabindingLexer {
    * The patterns of interest in the string.
    */
   private static enum NamedPattern {
-    OPENCURLYBRACES("\\{\\{"), CLOSECURLYBRACES("\\}\\}"), OPENSQUAREBRACES("\\[\\["),
-    CLOSESQUAREBRACES("\\]\\]"), CHARACTER(".");
+    OPENCURLYBRACES("\\{\\{"),
+    CLOSECURLYBRACES("\\}\\}"),
+    OPENSQUAREBRACES("\\[\\["),
+    CLOSESQUAREBRACES("\\]\\]"),
+    CHARACTER(".");
 
     private String regex;
 
@@ -91,17 +94,25 @@ public class PolymerDatabindingLexer {
         }
 
         if (matcher.group(NamedPattern.OPENCURLYBRACES.name()) != null) {
-          tokens.add(new Token(TokenType.OPENCURLYBRACES,
-              matcher.group(NamedPattern.OPENCURLYBRACES.name())));
+          tokens.add(
+              new Token(
+                  TokenType.OPENCURLYBRACES,
+                  matcher.group(NamedPattern.OPENCURLYBRACES.name())));
         } else if (matcher.group(NamedPattern.CLOSECURLYBRACES.name()) != null) {
-          tokens.add(new Token(TokenType.CLOSECURLYBRACES,
-              matcher.group(NamedPattern.CLOSECURLYBRACES.name())));
+          tokens.add(
+              new Token(
+                  TokenType.CLOSECURLYBRACES,
+                  matcher.group(NamedPattern.CLOSECURLYBRACES.name())));
         } else if (matcher.group(NamedPattern.OPENSQUAREBRACES.name()) != null) {
-          tokens.add(new Token(TokenType.OPENSQUAREBRACES,
-              matcher.group(NamedPattern.OPENSQUAREBRACES.name())));
+          tokens.add(
+              new Token(
+                  TokenType.OPENSQUAREBRACES,
+                  matcher.group(NamedPattern.OPENSQUAREBRACES.name())));
         } else if (matcher.group(NamedPattern.CLOSESQUAREBRACES.name()) != null) {
-          tokens.add(new Token(TokenType.CLOSESQUAREBRACES,
-              matcher.group(NamedPattern.CLOSESQUAREBRACES.name())));
+          tokens.add(
+              new Token(
+                  TokenType.CLOSESQUAREBRACES,
+                  matcher.group(NamedPattern.CLOSESQUAREBRACES.name())));
         }
       }
     }

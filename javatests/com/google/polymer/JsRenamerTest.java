@@ -10,7 +10,6 @@
 package com.google.polymer;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -139,14 +138,8 @@ public class JsRenamerTest {
         JsRenamer.renamePolymerJsExpression(testMap, "a.1.longName.4.three"));
   }
 
-  @Test
-  public void testError() {
-    JavaScriptParsingException exception = null;
-    try {
-      JsRenamer.renamePolymerJsExpression(testMap, "InvalidJs)a,b,c(");
-    } catch (JavaScriptParsingException e) {
-      exception = e;
-    }
-    assertNotNull(exception);
+  @Test(expected = JavaScriptParsingException.class)
+  public void testError() throws Exception {
+    JsRenamer.renamePolymerJsExpression(testMap, "InvalidJs)a,b,c(");
   }
 }

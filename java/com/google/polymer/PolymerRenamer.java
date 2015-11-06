@@ -19,7 +19,7 @@ import java.util.Scanner;
 /**
  * The Polymer Property and Databinding Renamer.
  */
-public class PolymerRenamer {
+public final class PolymerRenamer {
 
   private PolymerRenamer() {}
 
@@ -86,8 +86,9 @@ public class PolymerRenamer {
     } else if (inputFilename.endsWith("js")) {
       try {
         ImmutableSet<JsRenamer.OutputFormat> outputFormat =
-            ImmutableSet.<JsRenamer.OutputFormat>of(
-                prettyPrint ? JsRenamer.OutputFormat.PRETTY : JsRenamer.OutputFormat.MINIFIED);
+            prettyPrint
+                ? ImmutableSet.<JsRenamer.OutputFormat>of(JsRenamer.OutputFormat.PRETTY)
+                : ImmutableSet.<JsRenamer.OutputFormat>of();
         System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
       } catch (JavaScriptParsingException e) {
         System.err.printf("Error encountered parsing %s.%n", inputFilename);

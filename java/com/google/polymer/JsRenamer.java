@@ -16,6 +16,8 @@ import static com.google.javascript.rhino.Token.OBJECTLIT;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.Compiler;
@@ -35,25 +37,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Handles all JavaScript renaming.
+ * Static methods that perform JavaScript code transformations based off of a rename map.
  */
-public class JsRenamer {
+public final class JsRenamer {
+
   /**
    * Specifies the JavaScript output format.
    */
   public enum OutputFormat {
     /**
-     * Output JavaScript stripped of most formatting whitespace.
-     */
-    MINIFIED,
-
-    /**
-     * Output JavaScript in a "pretty" format.
+     * Output JavaScript in a "pretty" format. If unspecified, the output will be minified.
      */
     PRETTY,
 
     /**
-     * Output string literals using single quotes.
+     * Output string literals using single quotes. If unspecified, the output will use double quotes
+     * for strings.
      */
     SINGLE_QUOTE_STRINGS,
   }
@@ -72,14 +71,29 @@ public class JsRenamer {
     RENAME_PROPERTIES,
   }
 
-  // Pattern from
-  // https://github.com/Polymer/polymer/blob/master/src/standard/effectBuilder.html
+  // Joiner for JavaScript function argument strings.
+  private static final Joiner ARGUMENT_JOINER = Joiner.on(",");
+
+  // Splitter for JavaScript function argument strings.
+  private static final Splitter ARGUMENT_SPLITTER = Splitter.on(",").trimResults();
+
+  // Polymer property change name string suffix.
+  private static final String CHANGED_SUFFIX = "Changed";
+
+  // Pattern that identifies JavaScript methods consistent with Polymer.Base._parseMethod.
+  // See https://github.com/Polymer/polymer/blob/master/src/standard/effectBuilder.html
   private static final Pattern METHOD_PATTERN = Pattern.compile("([^\\s]+)\\((.*)\\)");
+
+  // Joiner for JavaScript property expressions.
+  private static final Joiner PROPERTY_EXPRESSION_JOINER = Joiner.on(".");
+
+  // Splitter for JavaScript property expressions.
+  private static final Splitter PROPERTY_EXPRESSION_SPLITTER = Splitter.on(".");
 
   private JsRenamer() {}
 
   /**
-   * Performs renames on JavaScript supplied from a JavaScript file.
+   * Performs renames on JavaScript as an entire string typically supplied from a file.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @param outputFormat The source output format options.
@@ -89,10 +103,12 @@ public class JsRenamer {
   public static String rename(
       ImmutableMap<String, String> renameMap, String js, ImmutableSet<OutputFormat> outputFormat)
       throws JavaScriptParsingException {
+    Preconditions.checkNotNull(renameMap);
     Node jsAst = parse(js);
-    ImmutableSet<RenameMode> renameMode = isPolymer05Javascript(jsAst)
-        ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
-        : ImmutableSet.<RenameMode>of();
+    ImmutableSet<RenameMode> renameMode =
+        isPolymer05Javascript(jsAst)
+            ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
+            : ImmutableSet.<RenameMode>of();
     return toSource(renameNode(renameMap, jsAst, renameMode), outputFormat);
   }
 
@@ -106,9 +122,10 @@ public class JsRenamer {
    */
   public static String renameProperties(ImmutableMap<String, String> renameMap, String js)
       throws JavaScriptParsingException {
+    Preconditions.checkNotNull(renameMap);
     return toSource(
         renameNode(renameMap, parse(js), ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)),
-        ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED));
+        ImmutableSet.<OutputFormat>of());
   }
 
   /**
@@ -120,28 +137,29 @@ public class JsRenamer {
    */
   public static String renamePolymerJsExpression(
       ImmutableMap<String, String> renameMap, String js) throws JavaScriptParsingException {
+    Preconditions.checkNotNull(renameMap);
     try {
       // Add parenthesis to convince the parser that the input is a value expression.
-      String renamed = toSource(
-          renameNode(renameMap, parse("(" + js + ")"),
-              ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
-          ImmutableSet.<OutputFormat>of(OutputFormat.MINIFIED, OutputFormat.SINGLE_QUOTE_STRINGS));
-      if (renamed.length() > 0) {
-        // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
-        renamed = renamed.substring(0, renamed.length() - 1);
-      }
-      return renamed;
+      String renamed =
+          toSource(
+              renameNode(
+                  renameMap, parse("(" + js + ")"),
+                  ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
+              ImmutableSet.<OutputFormat>of(OutputFormat.SINGLE_QUOTE_STRINGS));
+      // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
+      return renamed.substring(0, renamed.length() - 1);
     } catch (JavaScriptParsingException javaScriptParsingException) {
       // If we're here, the Closure Compiler couldn't quite figure it out. Fallback to Polymer
       // style expression parsing to see if we can fix it up manually. If not, forward the error.
       Matcher methodMatcher = METHOD_PATTERN.matcher(js);
       if (methodMatcher.matches()) {
         String methodName = renamePolymerPathExpression(renameMap, methodMatcher.group(1));
-        String[] arguments = methodMatcher.group(2).split("\\s*,\\s*");
+        String[] arguments =
+            ARGUMENT_SPLITTER.splitToList(methodMatcher.group(2)).toArray(new String[0]);
         for (int i = 0; i < arguments.length; i++) {
           arguments[i] = renamePolymerPathExpression(renameMap, arguments[i]);
         }
-        return String.format("%s(%s)", methodName, Joiner.on(",").join(arguments));
+        return String.format("%s(%s)", methodName, ARGUMENT_JOINER.join(arguments));
       } else if (js.contains(".")) {
         return renamePolymerPathExpression(renameMap, js);
       }
@@ -160,11 +178,12 @@ public class JsRenamer {
     if (renameMap.containsKey(pathExpression)) {
       return renameMap.get(pathExpression);
     } else if (pathExpression.contains(".")) {
-      String[] components = pathExpression.split("\\.");
+      String[] components =
+          PROPERTY_EXPRESSION_SPLITTER.splitToList(pathExpression).toArray(new String[0]);
       for (int i = 0; i < components.length; i++) {
         components[i] = renamePolymerPathExpression(renameMap,  components[i]);
       }
-      return Joiner.on(".").join(components);
+      return PROPERTY_EXPRESSION_JOINER.join(components);
     }
     return pathExpression;
   }
@@ -223,7 +242,7 @@ public class JsRenamer {
    */
   private static String toSource(Node node, ImmutableSet<OutputFormat> outputFormat) {
     CompilerOptions options = new CompilerOptions();
-    options.prettyPrint = outputFormat.contains(OutputFormat.PRETTY);
+    options.setPrettyPrint(outputFormat.contains(OutputFormat.PRETTY));
     options.setPreferSingleQuotes(outputFormat.contains(OutputFormat.SINGLE_QUOTE_STRINGS));
     // The Closure Compiler treats the 'use strict' directive as a property of a node. CodeBuilder
     // doesn't consider directives during its code generation. Instead, it inserts the 'use strict'
@@ -249,8 +268,8 @@ public class JsRenamer {
    * @param renameMode Variable renaming mode to use.
    * @return The renamed abstract syntax tree.
    */
-  private static Node renameNode(ImmutableMap<String, String> renameMap, Node current,
-      ImmutableSet<RenameMode> renameMode) {
+  private static Node renameNode(
+      ImmutableMap<String, String> renameMap, Node current, ImmutableSet<RenameMode> renameMode) {
     int type = current.getType();
     switch (type) {
       case CALL:
@@ -298,10 +317,10 @@ public class JsRenamer {
     String name = node.getString();
     if (renameMap.containsKey(name)) {
       node.setString(renameMap.get(name));
-    } else if (name.endsWith("Changed")) {
-      String basename = name.substring(0, name.length() - 7);
+    } else if (name.endsWith(CHANGED_SUFFIX)) {
+      String basename = name.substring(0, name.length() - CHANGED_SUFFIX.length());
       if (renameMap.containsKey(basename)) {
-        node.setString(renameMap.get(basename) + "Changed");
+        node.setString(renameMap.get(basename) + CHANGED_SUFFIX);
       }
     }
   }
@@ -339,8 +358,7 @@ public class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param call The call node to rename.
    */
-  private static void renameCall(
-      ImmutableMap<String, String> renameMap, Node call) {
+  private static void renameCall(ImmutableMap<String, String> renameMap, Node call) {
     if (call.getChildCount() == 3) {
       /* Rename Polymer.IronA11yKeysBehavior.addOwnKeyBinding(eventString, methodName). */
       if (isThisCallWithMethodName(call, "addOwnKeyBinding")) {
@@ -383,7 +401,7 @@ public class JsRenamer {
   }
 
   /**
-   * Forward renames to Polymer-relevant properties in the specified object map.
+   * Forwards renames to Polymer-relevant properties in the specified object map.
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param objectMap A map of keys as property string names to values as nodes.
    */
@@ -451,8 +469,7 @@ public class JsRenamer {
    * @param node String node to rename under variable renaming rules. Can be null. Will not attempt
    *     a rename if the node is not a string node.
    */
-  private static void renamePolymerJsStringNode(
-      ImmutableMap<String, String> renameMap, Node node) {
+  private static void renamePolymerJsStringNode(ImmutableMap<String, String> renameMap, Node node) {
     if (node == null || !node.isString()) {
       return;
     }
@@ -508,7 +525,7 @@ public class JsRenamer {
      * @param js JavaScript source for line context.
      */
     public JavaScriptErrorReporter(String js) {
-      this.jsLines = js.split("\r\n|\r|\n");
+      this.jsLines = js.split("\\r\\n|\\r|\\n");
     }
 
     /**

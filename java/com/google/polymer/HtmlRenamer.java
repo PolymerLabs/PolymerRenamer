@@ -11,6 +11,8 @@ package com.google.polymer;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.polymer.PolymerDatabindingLexer.Token;
 
@@ -32,9 +34,42 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Coordinates HTML document renaming.
+ * Static methods that perform HTML code transformations based off of a rename map.
  */
-public class HtmlRenamer {
+public final class HtmlRenamer {
+
+  /**
+   * HTML tags of interest to the HtmlRenamer.
+   */
+  private enum HtmlTags {
+    DOM_MODULE("dom-module"),
+    POLYMER_ELEMENT("polymer-element"),
+    SCRIPT("script");
+
+    private String tagName;
+
+    private HtmlTags(String tagName) {
+      this.tagName = tagName;
+    }
+
+    public String getName() {
+      return tagName;
+    }
+  }
+
+  // Joiner for HTML attribute lists.
+  private static final Joiner ATTRIBUTE_LIST_JOINER = Joiner.on(" ");
+
+  // Splitter for HTML attribute lists.
+  private static final Splitter ATTRIBUTE_LIST_SPLITTER = Splitter.on(" ");
+
+  // Joiner for Polymer style event expressions.
+  private static final Joiner EVENT_EXPRESSION_JOINER = Joiner.on("::");
+
+  // Splitter for Polymer style event expressions.
+  private static final Splitter EVENT_EXPRESSION_SPLITTER = Splitter.on("::");
+
+  private HtmlRenamer() {}
 
   private static enum RenameMode {
     POLYMER_0_5,
@@ -50,12 +85,12 @@ public class HtmlRenamer {
     private boolean insideScriptElement = false;
 
     /**
-     * Constructs the DatabindingRenamer to rename according to |renameMap|.
+     * Constructs the DatabindingRenamer to rename according to {@code renameMap}.
      * @param renameMap A mapping from symbol to renamed symbol.
      */
     public DatabindingRenamer(
         ImmutableMap<String, String> renameMap, HtmlRenamer.RenameMode renameMode) {
-      this.renameMap = renameMap;
+      this.renameMap = Preconditions.checkNotNull(renameMap);
       this.renameMode = renameMode;
     }
 
@@ -64,7 +99,7 @@ public class HtmlRenamer {
       if (node instanceof Element) {
         Element element = (Element) node;
         String tagName = element.tag().getName();
-        if (tagName.equals("polymer-element")) {
+        if (tagName.equals(HtmlTags.POLYMER_ELEMENT.getName())) {
           renameAttributesAttributeValue(element);
         } else if (tagName.equals("script")) {
           insideScriptElement = true;
@@ -91,7 +126,7 @@ public class HtmlRenamer {
     public void tail(Node node, int depth) {
       if (node instanceof Element) {
         Element element = (Element) node;
-        if (element.tag().equals("script")) {
+        if (element.tag().equals(HtmlTags.SCRIPT.getName())) {
           insideScriptElement = false;
         }
       }
@@ -100,7 +135,8 @@ public class HtmlRenamer {
     private void renameAttributesAttributeValue(Element element) {
       String attributesValue = element.attr("attributes");
       boolean modified = false;
-      String properties[] = attributesValue.split(" ");
+      String properties[] =
+          ATTRIBUTE_LIST_SPLITTER.splitToList(attributesValue).toArray(new String[0]);
       for (int i = 0; i < properties.length; i++) {
         String property = properties[i];
         if (renameMap.containsKey(property)) {
@@ -109,7 +145,7 @@ public class HtmlRenamer {
         }
       }
       if (modified) {
-        element.attr("attributes", Joiner.on(" ").join(properties));
+        element.attr("attributes", ATTRIBUTE_LIST_JOINER.join(properties));
       }
     }
 
@@ -180,26 +216,28 @@ public class HtmlRenamer {
       // See https://www.polymer-project.org/1.0/docs/devguide/data-binding.html#two-way-native.
       // Expression Format: {{expression::eventName}}
       // We'll treat this as {{expression::notRenamed}}
-      String[] components = expression.split("::");
+      String[] components =
+          EVENT_EXPRESSION_SPLITTER.splitToList(expression).toArray(new String[0]);
       try {
         components[0] = JsRenamer.renamePolymerJsExpression(renameMap, components[0]);
       } catch (JavaScriptParsingException e) {
         System.err.println(e);
       }
-      return Joiner.on("::").join(components);
+      return EVENT_EXPRESSION_JOINER.join(components);
     }
   }
 
   public static String rename(ImmutableMap<String, String> renameMap, String htmlString) {
+    Preconditions.checkNotNull(renameMap);
     Document document = Parser.parse(htmlString, "");
     OutputSettings outputSettings = document.outputSettings();
     outputSettings.prettyPrint(false);
     outputSettings.escapeMode(EscapeMode.extended);
     RenameMode renameMode = RenameMode.POLYMER_0_8;
-    Elements polymerDomElements = document.getElementsByTag("dom-module");
+    Elements polymerDomElements = document.getElementsByTag(HtmlTags.DOM_MODULE.getName());
     if (polymerDomElements.isEmpty()) {
       renameMode = HtmlRenamer.RenameMode.POLYMER_0_5;
-      polymerDomElements = document.getElementsByTag("polymer-element");
+      polymerDomElements = document.getElementsByTag(HtmlTags.POLYMER_ELEMENT.getName());
     }
     List<String> polymerCustomElements = new ArrayList<String>();
     NodeTraversor polymerDomElementTraversor =
