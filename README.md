@@ -1,5 +1,8 @@
 The Polymer Renamer
 ===================
+
+[![Build Status](https://travis-ci.org/PolymerLabs/PolymerRenamer.svg?branch=master)](https://travis-ci.org/PolymerLabs/PolymerRenamer)
+
 The Polymer Renamer helps developers integrate the Google Closure compiler with
 their Polymer projects by forwarding renames performed by the compiler to HTML
 and JS files.
