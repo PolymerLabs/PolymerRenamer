@@ -48,6 +48,8 @@ var behavior = {
     element1.element2.$.coolSymbolName;
     this.addOwnKeyBinding(foo, 'MY_SYMBOL');
     this.addOwnKeyBinding(foo, 'norename');
+    this.aOKB(foo, 'MY_SYMBOL');
+    this.aOKB(foo, 'norename');
   }
 };
 Polymer({
@@ -110,6 +112,8 @@ Polymer({
     element1.element2.$.coolSymbolName;
     this.addOwnKeyBinding(foo, 'MY_SYMBOL');
     this.addOwnKeyBinding(foo, 'norename');
+    this.aOKB(foo, 'MY_SYMBOL');
+    this.aOKB(foo, 'norename');
     this.unlisten(this.foo, 'up', 'norename');
     this.unlisten(this.foo, 'up', 'coolSymbolName');
     this.unlisten(this.foo, variable, 'coolSymbolName');

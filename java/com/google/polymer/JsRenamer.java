@@ -354,26 +354,33 @@ public final class JsRenamer {
   private static void renameCall(ImmutableMap<String, String> renameMap, Node call) {
     if (call.getChildCount() == 3) {
       /* Rename Polymer.IronA11yKeysBehavior.addOwnKeyBinding(eventString, methodName). */
-      if (isThisCallWithMethodName(call, "addOwnKeyBinding")) {
+      if (isThisCallWithMethodName(renameMap, call, "addOwnKeyBinding")) {
         // Children [0=this.addOwnKeyBinding, 1=eventString, 2=methodName]
         renameStringNode(renameMap, call.getChildAtIndex(2));
       }
     } else if (call.getChildCount() == 4) {
       /* Rename PolymerElement.prototype.{un}listen(node, eventName, methodName). */
-      if (isThisCallWithMethodName(call, "listen") || isThisCallWithMethodName(call, "unlisten")) {
+      if (isThisCallWithMethodName(renameMap, call, "listen")
+          || isThisCallWithMethodName(renameMap, call, "unlisten")) {
         // Children [0=this.{un}listen, 1=node, 2=eventName, 3=methodName]
         renameStringNode(renameMap, call.getChildAtIndex(3));
       }
     }
   }
 
-  private static boolean isThisCallWithMethodName(Node call, String methodName) {
+  private static boolean isThisCallWithMethodName(
+      ImmutableMap<String, String> renameMap, Node call, String methodName) {
     Node maybeMethodNameGetProp = call.getFirstChild();
     if (maybeMethodNameGetProp.isGetProp()
         && maybeMethodNameGetProp.hasMoreThanOneChild()
         && maybeMethodNameGetProp.getFirstChild().isThis()) {
       Node maybeMethodName = maybeMethodNameGetProp.getChildAtIndex(1);
-      return maybeMethodName.isString() && maybeMethodName.getString().equals(methodName);
+      if (maybeMethodName.isString()) {
+        String maybeMethodNameString = maybeMethodName.getString();
+        return maybeMethodNameString.equals(methodName)
+            || (renameMap.containsKey(methodName)
+                && maybeMethodNameString.equals(renameMap.get(methodName)));
+      }
     }
     return false;
   }
