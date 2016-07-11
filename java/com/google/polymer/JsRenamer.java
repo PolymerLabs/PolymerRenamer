@@ -9,12 +9,6 @@
 
 package com.google.polymer;
 
-import static com.google.javascript.rhino.Token.CALL;
-import static com.google.javascript.rhino.Token.GETPROP;
-import static com.google.javascript.rhino.Token.NAME;
-import static com.google.javascript.rhino.Token.OBJECTLIT;
-import static com.google.javascript.rhino.Token.STRING_KEY;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -196,7 +190,7 @@ public final class JsRenamer {
    */
   private static Node parse(String js) throws JavaScriptParsingException {
     StaticSourceFile file = new SimpleSourceFile("input", false);
-    Config config = ParserRunner.createConfig(false, LanguageMode.ECMASCRIPT6, null);
+    Config config = ParserRunner.createConfig(LanguageMode.ECMASCRIPT6, null);
     JavaScriptErrorReporter errorReporter = new JavaScriptErrorReporter(js);
     Node script = ParserRunner.parse(file, js, config, errorReporter).ast;
     if (script == null) {
@@ -270,8 +264,7 @@ public final class JsRenamer {
    */
   private static Node renameNode(
       ImmutableMap<String, String> renameMap, Node current, ImmutableSet<RenameMode> renameMode) {
-    int type = current.getType();
-    switch (type) {
+    switch (current.getType()) {
       case CALL:
         if (isInObjectLit(current)) {
           renameCall(renameMap, current);
