@@ -264,7 +264,7 @@ public final class JsRenamer {
    */
   private static Node renameNode(
       ImmutableMap<String, String> renameMap, Node current, ImmutableSet<RenameMode> renameMode) {
-    switch (current.getType()) {
+    switch (current.getToken()) {
       case CALL:
         if (isInObjectLit(current)) {
           renameCall(renameMap, current);
