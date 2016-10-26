@@ -18,6 +18,7 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
+import com.google.javascript.jscomp.parsing.Config.StrictMode;
 import com.google.javascript.jscomp.parsing.ParserRunner;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
@@ -190,7 +191,7 @@ public final class JsRenamer {
    */
   private static Node parse(String js) throws JavaScriptParsingException {
     StaticSourceFile file = new SimpleSourceFile("input", false);
-    Config config = ParserRunner.createConfig(LanguageMode.ECMASCRIPT6, null);
+    Config config = ParserRunner.createConfig(LanguageMode.ECMASCRIPT6, null, StrictMode.SLOPPY);
     JavaScriptErrorReporter errorReporter = new JavaScriptErrorReporter(js);
     Node script = ParserRunner.parse(file, js, config, errorReporter).ast;
     if (script == null) {
