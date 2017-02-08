@@ -294,6 +294,8 @@ public final class JsRenamer {
           renamePolymerPropertyStringNode(renameMap, current);
         }
         break;
+      default:
+        // Ignore the other node types.
     }
     for (Node child : current.children()) {
       renameNode(renameMap, child, renameMode);
