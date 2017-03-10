@@ -15,7 +15,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.polymer.PolymerDatabindingLexer.Token;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.DataNode;
@@ -29,9 +30,6 @@ import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
 import org.jsoup.select.NodeTraversor;
 import org.jsoup.select.NodeVisitor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Static methods that perform HTML code transformations based off of a rename map.
@@ -126,7 +124,7 @@ public final class HtmlRenamer {
     public void tail(Node node, int depth) {
       if (node instanceof Element) {
         Element element = (Element) node;
-        if (element.tag().equals(HtmlTags.SCRIPT.getName())) {
+        if (element.tagName().equals(HtmlTags.SCRIPT.getName())) {
           insideScriptElement = false;
         }
       }
