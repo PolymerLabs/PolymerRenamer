@@ -12,17 +12,16 @@ package com.google.polymer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Scanner;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for PolymerRenamer.
@@ -50,9 +49,13 @@ public class PolymerRenamerTest {
 
   @Test
   public void testRunPolymer0_5() {
-    PolymerRenamer.main(new String[] {
-        getFilePathFromTestData("rename.map"),
-        getFilePathFromTestData("source.html")});
+    PolymerRenamer.main(
+        new String[] {
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("source.html")
+        });
     try {
       assertEquals(getFileContent(getFilePathFromTestData("source_expected.html")),
           outStream.toString());
@@ -64,10 +67,13 @@ public class PolymerRenamerTest {
 
   @Test
   public void testRunPolymer0_8() {
-    PolymerRenamer.main(new String[] {
-        getFilePathFromTestData("rename.map"),
-        getFilePathFromTestData("polymer_v0.8.html")
-    });
+    PolymerRenamer.main(
+        new String[] {
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("polymer_v0.8.html")
+        });
     try {
       assertEquals(getFileContent(getFilePathFromTestData("polymer_v0.8_expected.html")),
           outStream.toString());
@@ -79,9 +85,13 @@ public class PolymerRenamerTest {
 
   @Test
   public void testRunPolymerCall() {
-    PolymerRenamer.main(new String[] {
-        getFilePathFromTestData("rename.map"),
-        getFilePathFromTestData("polymer_call.js")});
+    PolymerRenamer.main(
+        new String[] {
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("polymer_call.js")
+        });
     try {
       assertEquals(getFileContent(getFilePathFromTestData("polymer_call_expected.js")),
           outStream.toString());
@@ -93,10 +103,14 @@ public class PolymerRenamerTest {
 
   @Test
   public void testRunPolymerPrettyCall() {
-    PolymerRenamer.main(new String[] {
-        "--jsPrettyPrint",
-        getFilePathFromTestData("rename.map"),
-        getFilePathFromTestData("polymer_call_pretty.js")});
+    PolymerRenamer.main(
+        new String[] {
+          "--jsPrettyPrint",
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("polymer_call_pretty.js")
+        });
     try {
       assertEquals(getFileContent(getFilePathFromTestData("polymer_call_pretty_expected.js")),
           outStream.toString());
@@ -108,9 +122,13 @@ public class PolymerRenamerTest {
 
   @Test
   public void testRunPolymerLegacyCall() {
-    PolymerRenamer.main(new String[] {
-        getFilePathFromTestData("rename.map"),
-        getFilePathFromTestData("polymer_legacy_call.js")});
+    PolymerRenamer.main(
+        new String[] {
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("polymer_legacy_call.js")
+        });
     try {
       assertEquals(getFileContent(getFilePathFromTestData("polymer_legacy_call_expected.js")),
           outStream.toString());

@@ -11,15 +11,30 @@ package com.google.polymer;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
-/**
- * The Polymer Property and Databinding Renamer.
- */
+/** The Polymer Property and Databinding Renamer. */
 public final class PolymerRenamer {
+  /** The command line arguments accepted by the PolymerRenamer. */
+  private static class Args {
+    @Option(name = "--inputFilename", usage = "The input file to rename", required = true)
+    private String inputFilename;
+
+    @Option(
+      name = "--propertyMapFilename",
+      usage = "The property map to use for renaming",
+      required = true
+    )
+    private String propertyMapFilename;
+
+    @Option(name = "--jsPrettyPrint", usage = "Whether to pretty print the output JS")
+    private boolean prettyPrint = false;
+  }
 
   private PolymerRenamer() {}
 
@@ -46,61 +61,56 @@ public final class PolymerRenamer {
 
   /**
    * Invokes the Polymer Property Renamer.
-   * @param args Two expected arguments, the first being the Closure property map filename and the
-   *        second being the input file.
    */
   public static void main(String[] args) {
-    if (args.length < 2 || args.length > 3) {
-      printUsage();
+    Args renamerArgs = new Args();
+    CmdLineParser parser = new CmdLineParser(renamerArgs);
+
+    try {
+      parser.parseArgument(args);
+    } catch (CmdLineException e) {
+      System.out.println(e.getLocalizedMessage());
+      System.out.println();
+      System.out.println("The Polymer Renamer");
+      System.out.println("Arguments:");
+      parser.printUsage(System.out);
       return;
     }
 
-    boolean prettyPrint = false;
-    prettyPrint = args[0].equals("--jsPrettyPrint");
-    if ((prettyPrint && (args.length != 3))
-        || (!prettyPrint && (args.length == 3))) {
-      printUsage();
-      return;
-    }
-
-    String propertyMapFilename = args[args.length - 2];
     ImmutableMap<String, String> renameMap;
     try {
-      renameMap = getRenameMap(propertyMapFilename);
+      renameMap = getRenameMap(renamerArgs.propertyMapFilename);
     } catch (FileNotFoundException e) {
-      System.err.println("Unable to read property map file: " + propertyMapFilename);
+      System.err.println("Unable to read property map file: " + renamerArgs.propertyMapFilename);
       return;
     }
 
-    String inputFilename = args[args.length - 1];
     String inputFileContent;
     try {
-      inputFileContent = getFileContent(inputFilename);
+      inputFileContent = getFileContent(renamerArgs.inputFilename);
     } catch (FileNotFoundException e) {
-      System.err.println("Unable to read input file: " + inputFilename);
+      System.err.println("Unable to read input file: " + renamerArgs.inputFilename);
       return;
     }
 
-    if (inputFilename.endsWith("html")) {
+    if (renamerArgs.inputFilename.endsWith("html")) {
       System.out.print(HtmlRenamer.rename(renameMap, inputFileContent));
-    } else if (inputFilename.endsWith("js")) {
+    } else if (renamerArgs.inputFilename.endsWith("js")) {
       try {
         ImmutableSet<JsRenamer.OutputFormat> outputFormat =
-            prettyPrint
+            renamerArgs.prettyPrint
                 ? ImmutableSet.<JsRenamer.OutputFormat>of(JsRenamer.OutputFormat.PRETTY)
                 : ImmutableSet.<JsRenamer.OutputFormat>of();
-        System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
+        System.out.print(
+            JsRenamer.rename(
+                renameMap,
+                inputFileContent,
+                outputFormat));
       } catch (JavaScriptParsingException e) {
-        System.err.printf("Error encountered parsing %s.%n", inputFilename);
+        System.err.printf("Error encountered parsing %s.%n", renamerArgs.inputFilename);
         System.err.println(e);
         System.exit(1);
       }
     }
-  }
-
-  private static void printUsage() {
-    System.out.println("The Polymer Renamer");
-    System.out.println("Args: [--jsPrettyPrint] <Property Map Filename> <Input Filename>");
-    System.out.println("  --jsPrettyPrint    For JavaScript files, output in indented form.");
   }
 }
