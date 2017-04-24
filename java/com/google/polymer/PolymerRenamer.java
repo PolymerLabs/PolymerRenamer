@@ -59,9 +59,7 @@ public final class PolymerRenamer {
     }
   }
 
-  /**
-   * Invokes the Polymer Property Renamer.
-   */
+  /** Invokes the Polymer Property Renamer. */
   public static void main(String[] args) {
     Args renamerArgs = new Args();
     CmdLineParser parser = new CmdLineParser(renamerArgs);
@@ -101,11 +99,7 @@ public final class PolymerRenamer {
             renamerArgs.prettyPrint
                 ? ImmutableSet.<JsRenamer.OutputFormat>of(JsRenamer.OutputFormat.PRETTY)
                 : ImmutableSet.<JsRenamer.OutputFormat>of();
-        System.out.print(
-            JsRenamer.rename(
-                renameMap,
-                inputFileContent,
-                outputFormat));
+        System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
       } catch (JavaScriptParsingException e) {
         System.err.printf("Error encountered parsing %s.%n", renamerArgs.inputFilename);
         System.err.println(e);

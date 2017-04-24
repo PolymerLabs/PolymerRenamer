@@ -24,25 +24,18 @@ import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Static methods that perform JavaScript code transformations based off of a rename map.
- */
+/** Static methods that perform JavaScript code transformations based off of a rename map. */
 public final class JsRenamer {
 
-  /**
-   * Specifies the JavaScript output format.
-   */
+  /** Specifies the JavaScript output format. */
   public enum OutputFormat {
-    /**
-     * Output JavaScript in a "pretty" format. If unspecified, the output will be minified.
-     */
+    /** Output JavaScript in a "pretty" format. If unspecified, the output will be minified. */
     PRETTY,
 
     /**
@@ -89,6 +82,7 @@ public final class JsRenamer {
 
   /**
    * Performs renames on JavaScript as an entire string typically supplied from a file.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @param outputFormat The source output format options.
@@ -110,6 +104,7 @@ public final class JsRenamer {
   /**
    * Renames JavaScript with Property Renaming. This is primarily used for code that predated the
    * Closure Polymer Pass.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return JavaScript code with renames applied.
@@ -125,20 +120,22 @@ public final class JsRenamer {
 
   /**
    * Renames properties, renames variables, and reformats Polymer JavaScript-like expressions.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @return The JavaScript-like expression with renames applied.
    * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  public static String renamePolymerJsExpression(
-      ImmutableMap<String, String> renameMap, String js) throws JavaScriptParsingException {
+  public static String renamePolymerJsExpression(ImmutableMap<String, String> renameMap, String js)
+      throws JavaScriptParsingException {
     Preconditions.checkNotNull(renameMap);
     try {
       // Add parenthesis to convince the parser that the input is a value expression.
       String renamed =
           toSource(
               renameNode(
-                  renameMap, parse("(" + js + ")"),
+                  renameMap,
+                  parse("(" + js + ")"),
                   ImmutableSet.of(RenameMode.RENAME_PROPERTIES, RenameMode.RENAME_VARIABLES)),
               ImmutableSet.<OutputFormat>of(OutputFormat.SINGLE_QUOTE_STRINGS));
       // Trim trailing semicolon since Polymer JavaScript-like expressions don't have this.
@@ -164,6 +161,7 @@ public final class JsRenamer {
 
   /**
    * Renames path expressions without using the Closure Compiler for parsing.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param pathExpression The path expression to rename.
    * @return The renamed path expression.
@@ -176,7 +174,7 @@ public final class JsRenamer {
       String[] components =
           PROPERTY_EXPRESSION_SPLITTER.splitToList(pathExpression).toArray(new String[0]);
       for (int i = 0; i < components.length; i++) {
-        components[i] = renamePolymerPathExpression(renameMap,  components[i]);
+        components[i] = renamePolymerPathExpression(renameMap, components[i]);
       }
       return PROPERTY_EXPRESSION_JOINER.join(components);
     }
@@ -185,6 +183,7 @@ public final class JsRenamer {
 
   /**
    * Parses the given JavaScript string into an abstract syntax tree.
+   *
    * @param js The JavaScript code.
    * @return An abstract syntax tree.
    * @throws JavaScriptParsingException if parse errors were encountered.
@@ -202,6 +201,7 @@ public final class JsRenamer {
 
   /**
    * Returns true if the supplied node is Polymer 0.5 style JavaScript.
+   *
    * @param node The JavaScript abstract syntax tree to check.
    */
   private static boolean isPolymer05Javascript(Node node) {
@@ -231,6 +231,7 @@ public final class JsRenamer {
 
   /**
    * Outputs the source equivalent of the abstract syntax tree.
+   *
    * @param node The JavaScript abstract syntax tree.
    * @param outputFormat The source output format options.
    * @return The equivalent JavaScript source.
@@ -257,9 +258,10 @@ public final class JsRenamer {
 
   /**
    * Applies the rename map to the provided JavaScript abstract syntax tree.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param current The JavaScript abstract syntax tree to rename. Note that this method will mutate
-   *        |current| with the renames.
+   *     |current| with the renames.
    * @param renameMode Variable renaming mode to use.
    * @return The renamed abstract syntax tree.
    */
@@ -305,6 +307,7 @@ public final class JsRenamer {
 
   /**
    * Renames Polymer property changed object property identifiers (*Changed properties).
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param node The string node containing the property changed identifier.
    */
@@ -351,6 +354,7 @@ public final class JsRenamer {
 
   /**
    * Renames calls that could include property string references.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param call The call node to rename.
    */
@@ -389,8 +393,9 @@ public final class JsRenamer {
   }
 
   /**
-   * Renames all object literals that are standalone or contained in a Polymer v0.8 style call.
-   * This allows behaviors coverage, which are indistinguishable from regular JavaScript objects.
+   * Renames all object literals that are standalone or contained in a Polymer v0.8 style call. This
+   * allows behaviors coverage, which are indistinguishable from regular JavaScript objects.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param objectLit Object literal node.
    */
@@ -405,6 +410,7 @@ public final class JsRenamer {
 
   /**
    * Forwards renames to Polymer-relevant properties in the specified object map.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param objectMap A map of keys as property string names to values as nodes.
    */
@@ -468,6 +474,7 @@ public final class JsRenamer {
 
   /**
    * Renames a string node under variable naming rules similar to Polymer databinding expressions.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param node String node to rename under variable renaming rules. Can be null. Will not attempt
    *     a rename if the node is not a string node.
@@ -488,6 +495,7 @@ public final class JsRenamer {
 
   /**
    * Renames a string node as if the entire string contained the symbol.
+   *
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param node String node to rename in entirety. Can be null. Will not attempt a rename if the
    *     node is not a string node.
@@ -525,15 +533,14 @@ public final class JsRenamer {
 
     /**
      * Constructs a JavaScriptErrorReporter that outputs warnings and errors using |js| as context.
+     *
      * @param js JavaScript source for line context.
      */
     public JavaScriptErrorReporter(String js) {
       this.jsLines = js.split("\\r\\n|\\r|\\n");
     }
 
-    /**
-     * Returns the stream output of warnings and errors as a string.
-     */
+    /** Returns the stream output of warnings and errors as a string. */
     public String getWarningAndErrorOutput() {
       return byteArrayOutputStream.toString();
     }
