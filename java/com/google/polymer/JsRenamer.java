@@ -9,6 +9,8 @@
 
 package com.google.polymer;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -16,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
+import com.google.javascript.jscomp.SourceFile;
+import com.google.javascript.jscomp.SourceMapInput;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.Config.StrictMode;
@@ -25,6 +29,8 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -78,6 +84,9 @@ public final class JsRenamer {
   // Splitter for JavaScript property expressions.
   private static final Splitter PROPERTY_EXPRESSION_SPLITTER = Splitter.on(".");
 
+  // A placeholder file name when we don't have a real file backing the JS.
+  private static final String PLACEHOLDER_FILE_NAME = "input";
+
   private JsRenamer() {}
 
   /**
@@ -86,19 +95,33 @@ public final class JsRenamer {
    * @param renameMap A mapping from symbol to renamed symbol.
    * @param js The JavaScript code.
    * @param outputFormat The source output format options.
+   * @param inputFileName The name of the input source file being renamed.
+   * @param inputSourceMap The content of the input sourcemap.
+   * @param sourceMapOutputFileName The name of the output sourcemap.
    * @return JavaScript code with renames applied.
    * @throws JavaScriptParsingException if parse errors were encountered.
    */
   public static String rename(
-      ImmutableMap<String, String> renameMap, String js, ImmutableSet<OutputFormat> outputFormat)
+      ImmutableMap<String, String> renameMap,
+      String js,
+      ImmutableSet<OutputFormat> outputFormat,
+      String inputFileName,
+      String inputSourceMap,
+      String sourceMapOutputFileName)
       throws JavaScriptParsingException {
     Preconditions.checkNotNull(renameMap);
-    Node jsAst = parse(js);
+    Node jsAst = parse(js, inputFileName);
     ImmutableSet<RenameMode> renameMode =
         isPolymer05Javascript(jsAst)
             ? ImmutableSet.<RenameMode>of(RenameMode.RENAME_PROPERTIES)
             : ImmutableSet.<RenameMode>of();
-    return toSource(renameNode(renameMap, jsAst, renameMode), outputFormat);
+
+    return outputSource(
+        renameNode(renameMap, jsAst, renameMode),
+        outputFormat,
+        inputFileName,
+        inputSourceMap,
+        sourceMapOutputFileName);
   }
 
   /**
@@ -181,15 +204,20 @@ public final class JsRenamer {
     return pathExpression;
   }
 
+  private static Node parse(String js) throws JavaScriptParsingException {
+    return parse(js, PLACEHOLDER_FILE_NAME);
+  }
+
   /**
    * Parses the given JavaScript string into an abstract syntax tree.
    *
    * @param js The JavaScript code.
+   * @param inputFileName The source filename to associate with the input JS.
    * @return An abstract syntax tree.
    * @throws JavaScriptParsingException if parse errors were encountered.
    */
-  private static Node parse(String js) throws JavaScriptParsingException {
-    StaticSourceFile file = new SimpleSourceFile("input", false);
+  private static Node parse(String js, String inputFileName) throws JavaScriptParsingException {
+    StaticSourceFile file = new SimpleSourceFile(inputFileName, false);
     Config config = ParserRunner.createConfig(LanguageMode.ECMASCRIPT6, null, StrictMode.SLOPPY);
     JavaScriptErrorReporter errorReporter = new JavaScriptErrorReporter(js);
     Node script = ParserRunner.parse(file, js, config, errorReporter).ast;
@@ -237,6 +265,26 @@ public final class JsRenamer {
    * @return The equivalent JavaScript source.
    */
   private static String toSource(Node node, ImmutableSet<OutputFormat> outputFormat) {
+    return outputSource(node, outputFormat, PLACEHOLDER_FILE_NAME, null, null);
+  }
+
+  /**
+   * Outputs the source equivalent of the abstract syntax tree, optionally generating a sourcemap.
+   *
+   * @param node The JavaScript abstract syntax tree.
+   * @param outputFormat The source output format options.
+   * @param inputFileName The source file name to associate with the input node, used for sourcemap
+   *     generation.
+   * @param inputSourceMap The content of the input sourcemap.
+   * @param sourceMapOutputFileName The name of the output sourcemap.
+   * @return The equivalent JavaScript source.
+   */
+  private static String outputSource(
+      Node node,
+      ImmutableSet<OutputFormat> outputFormat,
+      String inputFileName,
+      String inputSourceMap,
+      String sourceMapOutputFileName) {
     CompilerOptions options = new CompilerOptions();
     options.setPrettyPrint(outputFormat.contains(OutputFormat.PRETTY));
     options.setPreferSingleQuotes(outputFormat.contains(OutputFormat.SINGLE_QUOTE_STRINGS));
@@ -248,11 +296,37 @@ public final class JsRenamer {
       options.setLanguage(CompilerOptions.LanguageMode.ECMASCRIPT6_STRICT);
     }
     options.skipAllCompilerPasses();
+
+    if (inputSourceMap != null) {
+      SourceFile sourceMapSourceFile = SourceFile.fromCode("input.sourcemap", inputSourceMap);
+      ImmutableMap<String, SourceMapInput> inputSourceMaps =
+          ImmutableMap.of(inputFileName, new SourceMapInput(sourceMapSourceFile));
+      options.setInputSourceMaps(inputSourceMaps);
+      options.setApplyInputSourceMaps(true);
+      // Simply setting the path to any non-null value will trigger source map generation.
+      // Since sourceMapOutputPath is handled by AbstractCommandLineRunner and not the Compiler
+      // itself, we manually output the final sourcemap below.
+      options.setSourceMapOutputPath("/dev/null");
+    }
+
     Compiler compiler = new Compiler();
     compiler.disableThreads();
     compiler.initOptions(options);
+    compiler.initBasedOnOptions();
     Compiler.CodeBuilder cb = new Compiler.CodeBuilder();
     compiler.toSource(cb, 0, node);
+
+    if (inputFileName != null && inputSourceMap != null && sourceMapOutputFileName != null) {
+      try {
+        FileOutputStream fileOut = new FileOutputStream(sourceMapOutputFileName);
+        OutputStreamWriter out = new OutputStreamWriter(fileOut, UTF_8);
+        compiler.getSourceMap().appendTo(out, "renamed.js");
+        out.close();
+      } catch (Exception e) {
+        System.err.println(e + "Error writing output sourcemap.");
+      }
+    }
+
     return cb.toString();
   }
 

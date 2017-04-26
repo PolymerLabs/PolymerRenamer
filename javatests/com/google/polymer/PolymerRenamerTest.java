@@ -10,16 +10,20 @@
 package com.google.polymer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Scanner;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -34,6 +38,9 @@ public class PolymerRenamerTest {
 
   private final ByteArrayOutputStream errStream = new ByteArrayOutputStream();
   private final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+
+  @Rule
+  public TemporaryFolder tmpFolder = new TemporaryFolder();
 
   @Before
   public void setUpStreams() {
@@ -136,6 +143,32 @@ public class PolymerRenamerTest {
       fail(e.toString());
     }
     assertEquals("", errStream.toString());
+  }
+
+  @Test
+  public void testGenerateSourceMap() {
+    try {
+      File outputSourceMapFilename = tmpFolder.newFile("output.sourcemap");
+      PolymerRenamer.main(
+          new String[] {
+            "--propertyMapFilename",
+            getFilePathFromTestData("compiled_source.map"),
+            "--inputFilename",
+            getFilePathFromTestData("compiled_source.js"),
+            "--inputSourceMapFilename",
+            getFilePathFromTestData("compiled_source.sourcemap"),
+            "--outputSourceMapFilename",
+            outputSourceMapFilename.getAbsolutePath()
+          });
+      String outputSourceMapContent = getFileContent(outputSourceMapFilename.getAbsolutePath());
+      // Source maps produced by the Closure Compiler are not stable and cannot be compared. Since
+      // we're not testing Closure, all that matters here is that the PolymerRenamer generates a
+      // non-empty file. Closure's tests will cover if the contents is valid.
+      assertFalse(outputSourceMapContent.isEmpty());
+      assertEquals("", errStream.toString());
+    } catch (IOException e) {
+      fail(e.toString());
+    }
   }
 
   private static String getFilePathFromTestData(String filename) {

@@ -1,0 +1,8 @@
+{
+"version":3,
+"file":"app_compiled.js",
+"lineCount":1,
+"mappings":"A,aAAAA,OAAA,CAAQ,CACNC,GAAI,OADE,CAGNC,WAAY,CAACC,IAAKC,MAAN,CAHN,CAKNC,UAAW,CACT,aAAc,cADL,CALL,CAaNC,EAAiBA,QAAQ,EAAG,CAC1B,MAAO,OAAP,CAAiB,IAAAH,IADS,CAbtB,CAqBNI,EAAcA,QAAQ,CAACC,CAAD,CAAI,CACxBC,OAAAC,IAAA,CAAYF,CAAAG,KAAZ,CADwB,CArBpB,CAAR,C;",
+"sources":["x-foo.js"],
+"names":["Polymer","is","properties","bar","String","listeners","calculateValue_","onSpanClick_","e","console","log","type"]
+}

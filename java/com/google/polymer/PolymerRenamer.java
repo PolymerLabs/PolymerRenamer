@@ -32,6 +32,20 @@ public final class PolymerRenamer {
     )
     private String propertyMapFilename;
 
+    @Option(
+      name = "--inputSourceMapFilename",
+      usage = "The input source map",
+      depends = {"--outputSourceMapFilename"}
+    )
+    private String inputSourceMapFilename;
+
+    @Option(
+      name = "--outputSourceMapFilename",
+      usage = "The name for the output source map",
+      depends = {"--inputSourceMapFilename"}
+    )
+    private String outputSourceMapFilename;
+
     @Option(name = "--jsPrettyPrint", usage = "Whether to pretty print the output JS")
     private boolean prettyPrint = false;
   }
@@ -94,12 +108,30 @@ public final class PolymerRenamer {
     if (renamerArgs.inputFilename.endsWith("html")) {
       System.out.print(HtmlRenamer.rename(renameMap, inputFileContent));
     } else if (renamerArgs.inputFilename.endsWith("js")) {
+      String inputSourceMapContent = null;
+      if (renamerArgs.inputSourceMapFilename != null) {
+        try {
+          inputSourceMapContent = getFileContent(renamerArgs.inputSourceMapFilename);
+        } catch (FileNotFoundException e) {
+          System.err.println(
+              "Unable to read input sourcemap: " + renamerArgs.inputSourceMapFilename);
+          return;
+        }
+      }
+
       try {
         ImmutableSet<JsRenamer.OutputFormat> outputFormat =
             renamerArgs.prettyPrint
                 ? ImmutableSet.<JsRenamer.OutputFormat>of(JsRenamer.OutputFormat.PRETTY)
                 : ImmutableSet.<JsRenamer.OutputFormat>of();
-        System.out.print(JsRenamer.rename(renameMap, inputFileContent, outputFormat));
+        System.out.print(
+            JsRenamer.rename(
+                renameMap,
+                inputFileContent,
+                outputFormat,
+                renamerArgs.inputFilename,
+                inputSourceMapContent,
+                renamerArgs.outputSourceMapFilename));
       } catch (JavaScriptParsingException e) {
         System.err.printf("Error encountered parsing %s.%n", renamerArgs.inputFilename);
         System.err.println(e);
