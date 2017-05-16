@@ -234,7 +234,7 @@ public final class JsRenamer {
    */
   private static boolean isPolymer05Javascript(Node node) {
     if (isPolymerCall(node) && node.hasMoreThanOneChild()) {
-      Node firstArgument = node.getChildAtIndex(1);
+      Node firstArgument = node.getSecondChild();
       if (firstArgument.isString()) {
         return true;
       } else if (firstArgument.isObjectLit()) {
@@ -350,7 +350,7 @@ public final class JsRenamer {
       case GETPROP:
         if (renameMode.contains(RenameMode.RENAME_PROPERTIES)) {
           if (current.hasMoreThanOneChild()) {
-            Node secondChild = current.getChildAtIndex(1);
+            Node secondChild = current.getSecondChild();
             if (secondChild.isString()) {
               renamePolymerPropertyStringNode(renameMap, secondChild);
             }
@@ -455,7 +455,7 @@ public final class JsRenamer {
     if (maybeMethodNameGetProp.isGetProp()
         && maybeMethodNameGetProp.hasMoreThanOneChild()
         && maybeMethodNameGetProp.getFirstChild().isThis()) {
-      Node maybeMethodName = maybeMethodNameGetProp.getChildAtIndex(1);
+      Node maybeMethodName = maybeMethodNameGetProp.getSecondChild();
       if (maybeMethodName.isString()) {
         String maybeMethodNameString = maybeMethodName.getString();
         return maybeMethodNameString.equals(methodName)
