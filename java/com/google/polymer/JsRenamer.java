@@ -293,7 +293,8 @@ public final class JsRenamer {
     // directive if it is in a strict language mode.
     Set<String> directives = node.getDirectives();
     if ((directives != null) && directives.contains("use strict")) {
-      options.setLanguage(CompilerOptions.LanguageMode.ECMASCRIPT6_STRICT);
+      options.setLanguage(CompilerOptions.LanguageMode.ECMASCRIPT_2015);
+      options.setEmitUseStrict(true);
     }
     options.skipAllCompilerPasses();
 
