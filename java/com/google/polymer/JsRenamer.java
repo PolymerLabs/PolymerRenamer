@@ -87,6 +87,9 @@ public final class JsRenamer {
   // A placeholder file name when we don't have a real file backing the JS.
   private static final String PLACEHOLDER_FILE_NAME = "input";
 
+  // Common format-string for all js related warnings.
+  private static final String WARNING_MSG_FORMAT = "WARNING: (%d:%d) %s%n";
+
   private JsRenamer() {}
 
   /**
@@ -507,36 +510,57 @@ public final class JsRenamer {
 
     // Rename all JavaScript-like expressions in the 'observers' array.
     Node observersNode = objectMap.get("observers");
-    if ((observersNode != null) && observersNode.isArrayLit()) {
-      for (Node observerItem : observersNode.children()) {
-        renamePolymerJsStringNode(renameMap, observerItem);
+    if (observersNode != null) {
+      if (observersNode.isArrayLit()) {
+        for (Node observerItem : observersNode.children()) {
+          renamePolymerJsStringNode(renameMap, observerItem);
+        }
+      } else {
+        warning("Unable to perform 'observers' renaming: unexpected type.", observersNode);
       }
     }
 
     // Rename all JavaScript-like expressions in the listeners descriptor.
     Node listenersNode = objectMap.get("listeners");
     if ((listenersNode != null) && listenersNode.isObjectLit()) {
-      ImmutableMap<String, Node> listenersMap = convertObjectLitNodeToMap(listenersNode);
-      for (Node listenerDescriptorNode : listenersMap.values()) {
-        renamePolymerJsStringNode(renameMap, listenerDescriptorNode);
+      if (listenersNode.isObjectLit()) {
+        ImmutableMap<String, Node> listenersMap = convertObjectLitNodeToMap(listenersNode);
+        for (Node listenerDescriptorNode : listenersMap.values()) {
+          renamePolymerJsStringNode(renameMap, listenerDescriptorNode);
+        }
+      } else {
+        warning("Unable to perform 'listeners' renaming: unexpected type.", listenersNode);
       }
     }
 
     // Rename the keyBindings string to method string map using in Polymer.IronA11yKeysBehavior.
     Node keyBindingsNode = objectMap.get("keyBindings");
-    if ((keyBindingsNode != null) && keyBindingsNode.isObjectLit()) {
+    if (keyBindingsNode != null) {
       renameKeyBindingsNode(renameMap, keyBindingsNode);
     }
 
     if (renameMap.containsKey("keyBindings")) {
       Node renamedKeyBindingsNode = objectMap.get(renameMap.get("keyBindings"));
-      if ((renamedKeyBindingsNode != null) && renamedKeyBindingsNode.isObjectLit()) {
+      if (renamedKeyBindingsNode != null) {
         renameKeyBindingsNode(renameMap, renamedKeyBindingsNode);
       }
     }
   }
 
+  private static void warning(String msg, Node node) {
+    System.err.printf(
+        WARNING_MSG_FORMAT,
+        node.getLineno(), 
+        node.getCharno(),
+        msg + ' ' + node.getSourceFileName());
+  }
+
   private static void renameKeyBindingsNode(ImmutableMap<String, String> renameMap, Node node) {
+    if (!node.isObjectLit()) {
+      warning("Unable to perform 'keyBindings' renaming: unexpected type.", node);
+      return;
+    }
+
     ImmutableMap<String, Node> keyBindingsMap = convertObjectLitNodeToMap(node);
     for (Node keyBindingMethodStringNode : keyBindingsMap.values()) {
       if (!keyBindingMethodStringNode.isString()) {
@@ -555,7 +579,11 @@ public final class JsRenamer {
    *     a rename if the node is not a string node.
    */
   private static void renamePolymerJsStringNode(ImmutableMap<String, String> renameMap, Node node) {
-    if (node == null || !node.isString()) {
+    if (node == null) {
+      return;
+    }
+    if (!node.isString()) {
+      warning("Unable to perform property renaming: unexpected type.", node);
       return;
     }
 
@@ -622,7 +650,7 @@ public final class JsRenamer {
 
     @Override
     public void warning(String message, String sourceName, int line, int lineOffset) {
-      outputStream.printf("WARNING: (%d:%d) %s%n", line, lineOffset, message);
+      outputStream.printf(WARNING_MSG_FORMAT, line, lineOffset, message);
       printSource(9, line, lineOffset);
     }
 
