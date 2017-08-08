@@ -91,6 +91,25 @@ public class PolymerRenamerTest {
   }
 
   @Test
+  public void testRunOptimizedObserversArray() {
+    PolymerRenamer.main(
+        new String[] {
+          "--propertyMapFilename",
+          getFilePathFromTestData("rename.map"),
+          "--inputFilename",
+          getFilePathFromTestData("polymer_optimized_observers.js")
+        });
+    try {
+      assertEquals(
+          getFileContent(getFilePathFromTestData("polymer_optimized_observers_expected.js")),
+          outStream.toString());
+    } catch (FileNotFoundException e) {
+      fail(e.toString());
+    }
+    assertEquals("", errStream.toString());
+  }
+
+  @Test
   public void testRunPolymerCall() {
     PolymerRenamer.main(
         new String[] {

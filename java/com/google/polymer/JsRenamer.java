@@ -515,6 +515,8 @@ public final class JsRenamer {
         for (Node observerItem : observersNode.children()) {
           renamePolymerJsStringNode(renameMap, observerItem);
         }
+      } else if (isOptimizedArray(observersNode)) {
+        renameOptimizedArray(renameMap, observersNode);
       } else {
         warning("Unable to perform 'observers' renaming: unexpected type.", observersNode);
       }
@@ -547,10 +549,75 @@ public final class JsRenamer {
     }
   }
 
+  /**
+   * Detects string representation of array.
+   * Closure compiler can replace array of strings, with "split" call.
+   * e.g. "a,b,c".split(",")
+   *
+   * @param node The node to process.
+   * @return true if the attempt was successful.
+   */
+  private static boolean isOptimizedArray(Node node) {
+    if (!node.isCall() || node.getChildCount() != 2) {
+      return false;
+    }
+
+    if (!node.getFirstChild().isGetProp()) {
+      return false;
+    }
+
+    Node getProp = node.getChildAtIndex(0);
+    if (getProp.getChildCount() != 2) {
+      return false;
+    }
+
+    Node obj = getProp.getChildAtIndex(0);
+    Node propertyName = getProp.getChildAtIndex(1);
+    if (!obj.isString() || !propertyName.isString() || !propertyName.getString().equals("split")) {
+      return false;
+    }
+
+    Node separator = node.getChildAtIndex(1);
+    if (!separator.isString() || separator.getString().length() != 1) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Renames string representation of array.
+   * Closure compiler can replace array of strings, with "split" call.
+   * e.g. "a,b,c".split(",")
+   *
+   * @param renameMap A mapping from symbol to renamed symbol.
+   * @param node The node to process.
+   * @return true if the attempt was successful.
+   */
+  private static boolean renameOptimizedArray(
+      ImmutableMap<String, String> renameMap, Node node) {
+    Node getProp = node.getChildAtIndex(0);
+
+    Node obj = getProp.getChildAtIndex(0);
+    Node separator = node.getChildAtIndex(1);
+
+    String[] strings =
+        Splitter.on(separator.getString().charAt(0)).splitToList(obj.getString())
+            .toArray(new String[0]);
+    for (int i = 0; i < strings.length; i++) {
+      Node t = Node.newString(strings[i]);
+      renamePolymerJsStringNode(renameMap, t);
+      strings[i] = t.getString();
+    }
+    obj.setString(Joiner.on(separator.getString()).join(strings));
+
+    return true;
+  }
+
   private static void warning(String msg, Node node) {
     System.err.printf(
         WARNING_MSG_FORMAT,
-        node.getLineno(), 
+        node.getLineno(),
         node.getCharno(),
         msg + ' ' + node.getSourceFileName());
   }
